@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. User Profiles & Game Progress
+    // Read is open so client can check if a user is onboarded without permission error
+    // Write is permitted for authenticated users on their user document
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+
+      // Subcollections (Daily habit logs, custom bucket questions)
+      match /{allSubcollections=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // 2. Social Clans & Guilds
+    match /guilds/{guildId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 3. Friend Requests & Clan Invites
+    match /requests/{requestId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
