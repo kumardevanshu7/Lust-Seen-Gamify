@@ -10,6 +10,7 @@ import {
   GameSettings,
   ElementalSkillId,
   Comrade,
+  PublicWarriorProfile,
 } from "@/types/game";
 import { DEFAULT_QUESTIONS } from "@/lib/defaultQuestions";
 import {
@@ -31,10 +32,16 @@ import {
   loadGameStateFromCloud,
   onAuthStateChanged,
   User,
+  claimUsernameAndPublishProfile,
+  formatCleanUsername,
+  sendCloudFriendRequest,
+  respondCloudFriendRequest,
+  subscribeToIncomingFriendRequests,
 } from "@/lib/firebase";
 
 interface GameContextType {
   state: GameState;
+  isLoaded: boolean;
   currentUser: User | null;
   isAuthLoading: boolean;
   loginGoogle: () => Promise<{ success: boolean; isOnboarded: boolean }>;
@@ -53,7 +60,7 @@ interface GameContextType {
   equipAchiever: (achieverId: string) => void;
   joinClan: (clanId: string) => void;
   sendChakraToClan: (clanId: string) => void;
-  sendFriendRequest: (username: string) => void;
+  sendFriendRequest: (target: string | PublicWarriorProfile) => void;
   acceptFriendRequest: (comradeId: string) => void;
   declineFriendRequest: (comradeId: string) => void;
   removeFriend: (comradeId: string) => void;
@@ -189,9 +196,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         );
 
         const hasLocalOnboardedFlag =
-          localStorage.getItem("control_urge_has_onboarded") === "true" ||
-          Boolean(parsed.profile?.username) ||
-          Boolean(parsed.isOnboarded);
+          Boolean(parsed.isOnboarded) &&
+          Boolean(parsed.profile?.username && parsed.profile.username.startsWith("@"));
 
         setState({
           ...parsed,
@@ -231,17 +237,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         try {
           const cloudState = await loadGameStateFromCloud(user.uid);
-          const localUserFlag = typeof window !== "undefined" && (
-            localStorage.getItem(`control_urge_user_onboarded_${user.uid}`) === "true" ||
-            localStorage.getItem("control_urge_has_onboarded") === "true"
-          );
-          const isUserOnboarded =
-            Boolean(cloudState?.isOnboarded) ||
-            Boolean(cloudState?.profile?.username) ||
-            Boolean(cloudState?.profile?.name) ||
-            Boolean(localUserFlag);
+          const hasUserCompletedOnboarding =
+            (Boolean(cloudState?.isOnboarded) && Boolean(cloudState?.profile?.username)) ||
+            (typeof window !== "undefined" &&
+              localStorage.getItem(`control_urge_user_onboarded_${user.uid}`) === "true" &&
+              Boolean(localStorage.getItem(`control_urge_user_username_${user.uid}`)));
 
-          if (cloudState && isUserOnboarded) {
+          if (cloudState && hasUserCompletedOnboarding) {
             // Restore cloud game state
             setState((prev) => ({
               ...prev,
@@ -256,22 +258,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               },
             }));
           } else {
-            // Update profile with user credentials if new, preserving local state if already onboarded
-            setState((prev) => {
-              const updatedProfile = {
+            // Brand new or uncompleted user: strictly enforce isOnboarded = false so onboarding is mandatory
+            setState((prev) => ({
+              ...prev,
+              isOnboarded: false,
+              profile: {
                 ...prev.profile,
                 firebaseUid: user.uid,
-                name: prev.profile.name || user.displayName || "",
+                name: user.displayName || prev.profile.name || "",
                 email: user.email || prev.profile.email,
                 photoURL: user.photoURL || prev.profile.photoURL,
-              };
-              const shouldBeOnboarded = prev.isOnboarded || localUserFlag || Boolean(prev.profile.username);
-              const synced = { ...prev, isOnboarded: shouldBeOnboarded, profile: updatedProfile };
-              if (shouldBeOnboarded) {
-                saveGameStateToCloud(user.uid, synced);
-              }
-              return synced;
-            });
+              },
+            }));
           }
         } catch (err) {
           console.warn("Error fetching cloud game data:", err);
@@ -281,6 +279,40 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // 2.1 Subscribe to Real-Time Cloud Friend Requests
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = subscribeToIncomingFriendRequests(currentUser.uid, (cloudReqs) => {
+      if (!cloudReqs || cloudReqs.length === 0) return;
+      setState((prev) => {
+        const existingIds = new Set(prev.friends.map((f) => f.id));
+        const newComrades: Comrade[] = cloudReqs
+          .filter((req) => !existingIds.has(req.id))
+          .map((req) => ({
+            id: req.id,
+            name: req.fromName,
+            username: req.fromUsername,
+            gender: req.fromGender,
+            elementalSkill: req.fromSkill,
+            streakDays: req.fromStreak,
+            animeTitle: req.fromAnimeTitle,
+            avatarColor: req.fromAvatarColor,
+            status: "pending_received",
+            lastActive: "Just now",
+            firebaseUid: req.fromUid,
+          }));
+
+        if (newComrades.length === 0) return prev;
+        return {
+          ...prev,
+          friends: [...newComrades, ...prev.friends],
+        };
+      });
+    });
+
+    return () => unsub();
+  }, [currentUser]);
 
   // 3. Save to localStorage on change (Offline Resilience)
   useEffect(() => {
@@ -292,12 +324,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, isLoaded]);
 
-  // 4. Auto-Sync Game State to Cloud Firestore whenever state changes
+  // 4. Auto-Sync Game State to Cloud Firestore (debounced 1200ms for high performance)
   useEffect(() => {
     if (!isLoaded || !currentUser) return;
     const debounceTimeout = setTimeout(() => {
       saveGameStateToCloud(currentUser.uid, state);
-    }, 600);
+    }, 1200);
 
     return () => clearTimeout(debounceTimeout);
   }, [state, isLoaded, currentUser]);
@@ -463,7 +495,31 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       triggerConfetti();
 
       // Clean formatted username with @
-      const cleanUsername = username.startsWith("@") ? username.trim() : `@${username.trim()}`;
+      const cleanHandle = formatCleanUsername(username);
+      const formattedUsername = `@${cleanHandle}`;
+      const targetUid = currentUser?.uid || `warrior_${Date.now()}`;
+
+      // Claim username in Firestore & publish public profile for global search
+      claimUsernameAndPublishProfile(targetUid, {
+        name: name.trim(),
+        username: formattedUsername,
+        gender,
+        relationship,
+        elementalSkill,
+        level: 1,
+        streakDays: 0,
+        animeTitle: gender === "female" ? "Valkyrie of Willpower" : "Monk of Iron Resolve",
+        avatarColor: "#ff7033",
+        clanName: "Survey Corps",
+        photoURL: currentUser?.photoURL || "",
+      }).catch((e) => console.warn("Error claiming username in cloud:", e));
+
+      if (typeof window !== "undefined") {
+        if (currentUser?.uid) {
+          localStorage.setItem(`control_urge_user_onboarded_${currentUser.uid}`, "true");
+          localStorage.setItem(`control_urge_user_username_${currentUser.uid}`, formattedUsername);
+        }
+      }
 
       setState((prev) => {
         const nextState: GameState = {
@@ -473,11 +529,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           profile: {
             ...prev.profile,
             name: name.trim(),
-            username: cleanUsername,
+            username: formattedUsername,
             gender,
             relationship,
             elementalSkill,
-            firebaseUid: currentUser?.uid || prev.profile.firebaseUid,
+            firebaseUid: targetUid,
             email: currentUser?.email || prev.profile.email,
             photoURL: currentUser?.photoURL || prev.profile.photoURL,
             createdAt: new Date().toISOString(),
@@ -487,13 +543,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
         if (currentUser?.uid) {
           saveGameStateToCloud(currentUser.uid, nextState);
-        }
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem("control_urge_has_onboarded", "true");
-          if (currentUser?.uid) {
-            localStorage.setItem(`control_urge_user_onboarded_${currentUser.uid}`, "true");
-          }
         }
 
         return nextState;
@@ -679,32 +728,80 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Social Comrades: Send Friend Request
-  const sendFriendRequest = useCallback((usernameOrName: string) => {
-    soundEngine.playClick();
-    const cleanHandle = usernameOrName.startsWith("@") ? usernameOrName : `@${usernameOrName.toLowerCase()}`;
-    const newComrade: Comrade = {
-      id: `user_${Date.now()}`,
-      name: usernameOrName.replace("@", ""),
-      username: cleanHandle,
-      gender: "other",
-      elementalSkill: "fire",
-      streakDays: 1,
-      animeTitle: "Path of Willpower",
-      avatarColor: "#ff7033",
-      status: "pending_sent",
-      lastActive: "Just now",
-      clanName: "Survey Corps",
-    };
+  const sendFriendRequest = useCallback(
+    (target: string | PublicWarriorProfile) => {
+      soundEngine.playClick();
+      if (typeof target === "string") {
+        const cleanRaw = target.replace(/^@/, "").trim();
+        const cleanHandle = `@${cleanRaw.toLowerCase()}`;
+        const newComrade: Comrade = {
+          id: `user_${Date.now()}`,
+          name: cleanRaw,
+          username: cleanHandle,
+          gender: "other",
+          elementalSkill: "fire",
+          streakDays: 1,
+          animeTitle: "Path of Willpower",
+          avatarColor: "#ff7033",
+          status: "pending_sent",
+          lastActive: "Just now",
+          clanName: "Survey Corps",
+        };
 
-    setState((prev) => ({
-      ...prev,
-      friends: [newComrade, ...prev.friends.filter((f) => f.username !== cleanHandle)],
-    }));
-  }, []);
+        setState((prev) => ({
+          ...prev,
+          friends: [newComrade, ...prev.friends.filter((f) => f.username !== cleanHandle)],
+        }));
+      } else {
+        const cleanHandle = target.username;
+        const newComrade: Comrade = {
+          id: `user_${target.uid}`,
+          name: target.name,
+          username: cleanHandle,
+          gender: target.gender,
+          elementalSkill: target.elementalSkill,
+          streakDays: target.streakDays,
+          animeTitle: target.animeTitle,
+          avatarColor: target.avatarColor,
+          status: "pending_sent",
+          lastActive: "Just now",
+          clanName: target.clanName || "Survey Corps",
+          firebaseUid: target.uid,
+        };
+
+        // If current user is logged in, send real-time cloud request
+        if (currentUser) {
+          const currentComrade: Comrade = {
+            id: currentUser.uid,
+            name: state.profile.name || "Warrior",
+            username: state.profile.username || `@warrior_${currentUser.uid.slice(0, 5)}`,
+            gender: state.profile.gender,
+            elementalSkill: state.profile.elementalSkill,
+            streakDays: state.streakDays,
+            animeTitle: state.profile.title || "Path of Willpower",
+            avatarColor: "#ff7033",
+            status: "pending_sent",
+            lastActive: "Just now",
+            firebaseUid: currentUser.uid,
+          };
+          sendCloudFriendRequest(currentComrade, target).catch((e) =>
+            console.warn("Cloud friend request note:", e)
+          );
+        }
+
+        setState((prev) => ({
+          ...prev,
+          friends: [newComrade, ...prev.friends.filter((f) => f.username !== cleanHandle && f.id !== newComrade.id)],
+        }));
+      }
+    },
+    [currentUser, state.profile, state.streakDays]
+  );
 
   // Accept Friend Request
   const acceptFriendRequest = useCallback((comradeId: string) => {
     soundEngine.playWin();
+    respondCloudFriendRequest(comradeId, "accepted").catch(() => {});
     setState((prev) => ({
       ...prev,
       friends: prev.friends.map((f) => (f.id === comradeId ? { ...f, status: "friend" as const } : f)),
@@ -714,6 +811,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // Decline Friend Request
   const declineFriendRequest = useCallback((comradeId: string) => {
     soundEngine.playClick();
+    respondCloudFriendRequest(comradeId, "declined").catch(() => {});
     setState((prev) => ({
       ...prev,
       friends: prev.friends.filter((f) => f.id !== comradeId),
@@ -1065,17 +1163,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     try {
       const user = await signInWithGoogle();
       const cloudData = await loadGameStateFromCloud(user.uid);
-      const localOnboarded = typeof window !== "undefined" && (
-        localStorage.getItem(`control_urge_user_onboarded_${user.uid}`) === "true" ||
-        localStorage.getItem("control_urge_has_onboarded") === "true"
-      );
       const isUserAlreadyOnboarded =
-        Boolean(cloudData?.isOnboarded) ||
-        Boolean(cloudData?.profile?.username) ||
-        Boolean(cloudData?.profile?.name) ||
-        Boolean(state.isOnboarded) ||
-        Boolean(state.profile.username) ||
-        Boolean(localOnboarded);
+        (Boolean(cloudData?.isOnboarded) && Boolean(cloudData?.profile?.username)) ||
+        (typeof window !== "undefined" &&
+          localStorage.getItem(`control_urge_user_onboarded_${user.uid}`) === "true" &&
+          Boolean(localStorage.getItem(`control_urge_user_username_${user.uid}`)));
 
       if (isUserAlreadyOnboarded) {
         setState((prev) => {
@@ -1089,15 +1181,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               ...(cloudData?.profile || {}),
               firebaseUid: user.uid,
               name: cloudData?.profile?.name || prev.profile.name || user.displayName || "Novice Warrior",
-              username: cloudData?.profile?.username || prev.profile.username || (user.email ? `@${user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "")}` : "@warrior"),
+              username: cloudData?.profile?.username || prev.profile.username || "@warrior",
               email: user.email || prev.profile.email,
               photoURL: user.photoURL || prev.profile.photoURL,
             },
           };
           saveGameStateToCloud(user.uid, nextState);
           if (typeof window !== "undefined") {
-            localStorage.setItem("control_urge_has_onboarded", "true");
             localStorage.setItem(`control_urge_user_onboarded_${user.uid}`, "true");
+            localStorage.setItem(`control_urge_user_username_${user.uid}`, nextState.profile.username);
           }
           return nextState;
         });
@@ -1106,6 +1198,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       } else {
         setState((prev) => ({
           ...prev,
+          isOnboarded: false,
           profile: {
             ...prev.profile,
             firebaseUid: user.uid,
@@ -1339,6 +1432,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     <GameContext.Provider
       value={{
         state,
+        isLoaded,
         currentUser,
         isAuthLoading,
         loginGoogle,

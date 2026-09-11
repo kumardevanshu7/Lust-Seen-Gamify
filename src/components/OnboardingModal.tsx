@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ElementalSkillId, Gender, RelationshipStatus } from "@/types/game";
 import { ELEMENTAL_SKILLS } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
-import { User, Heart, ArrowRight, Check, Shield, Sparkles, AtSign, Zap, X } from "lucide-react";
+import { User, Heart, ArrowRight, Check, Shield, Sparkles, AtSign, Zap, X, Lock, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useGame } from "@/context/GameContext";
+import { checkUsernameAvailable, formatCleanUsername } from "@/lib/firebase";
 
 interface OnboardingModalProps {
   onComplete: (
@@ -33,23 +34,83 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
   const [elementalSkill, setElementalSkill] = useState<ElementalSkillId>("fire");
   const [animatingSkillId, setAnimatingSkillId] = useState<ElementalSkillId | null>(null);
   const [formError, setFormError] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [usernameStatusMsg, setUsernameStatusMsg] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleNextFromStep1 = (e: React.FormEvent) => {
+  // Debounced live Firestore uniqueness check
+  useEffect(() => {
+    const clean = formatCleanUsername(username);
+    if (!clean) {
+      setUsernameStatus("idle");
+      setUsernameStatusMsg("");
+      return;
+    }
+
+    if (clean.length < 3) {
+      setUsernameStatus("invalid");
+      setUsernameStatusMsg("Handle must be at least 3 characters");
+      return;
+    }
+
+    if (clean.length > 20) {
+      setUsernameStatus("invalid");
+      setUsernameStatusMsg("Handle must be 20 characters or fewer");
+      return;
+    }
+
+    setUsernameStatus("checking");
+    const timeout = setTimeout(async () => {
+      const res = await checkUsernameAvailable(clean, currentUser?.uid);
+      if (res.available) {
+        setUsernameStatus("available");
+        setUsernameStatusMsg(`@${res.cleanUsername} is available!`);
+      } else {
+        setUsernameStatus("taken");
+        setUsernameStatusMsg(res.reason || "Username is already taken");
+      }
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [username, currentUser?.uid]);
+
+  const handleNextFromStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setFormError("Please enter your warrior name!");
       soundEngine.playDamage();
       return;
     }
-    if (!username.trim() || username.replace("@", "").trim().length < 2) {
-      setFormError("Please enter a valid @username handle!");
+
+    const clean = formatCleanUsername(username);
+    if (!clean || clean.length < 3) {
+      setFormError("Please enter a valid @username handle (at least 3 characters)!");
       soundEngine.playDamage();
       return;
     }
-    setFormError("");
-    soundEngine.playClick();
-    setStep(2);
+
+    setIsVerifying(true);
+    try {
+      const res = await checkUsernameAvailable(clean, currentUser?.uid);
+      if (!res.available) {
+        setUsernameStatus("taken");
+        setUsernameStatusMsg(res.reason || "Username is already taken");
+        setFormError(res.reason || "This username is already taken. Please choose another.");
+        soundEngine.playDamage();
+        return;
+      }
+
+      setUsernameStatus("available");
+      setFormError("");
+      soundEngine.playClick();
+      setStep(2);
+    } catch {
+      setStep(2);
+    } finally {
+      setIsVerifying(false);
+    }
   };
+
 
   const handleGenderSelect = (selectedGender: Gender) => {
     soundEngine.playClick();
@@ -168,9 +229,27 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
               </div>
 
               <div>
-                <label htmlFor="warrior-username" className="block text-xs font-black uppercase tracking-wider text-stone-700 mb-1">
-                  Unique Username Handle (@handle)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="warrior-username" className="block text-xs font-black uppercase tracking-wider text-stone-700">
+                    Unique Username Handle (@handle)
+                  </label>
+                  {usernameStatus === "checking" && (
+                    <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Checking…
+                    </span>
+                  )}
+                  {usernameStatus === "available" && (
+                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Available
+                    </span>
+                  )}
+                  {usernameStatus === "taken" && (
+                    <span className="text-[11px] font-bold text-red-600 flex items-center gap-1">
+                      <XCircle className="w-3 h-3" /> Taken
+                    </span>
+                  )}
+                </div>
+
                 <div className="relative">
                   <span className="absolute left-3.5 top-3 text-stone-400 font-bold text-sm">@</span>
                   <input
@@ -185,9 +264,42 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                       if (formError) setFormError("");
                     }}
                     placeholder="shadow_monk…"
-                    className="w-full pl-8 pr-4 py-3 rounded-2xl bg-white border-2 border-stone-300 focus:border-game-orange font-bold text-game-dark text-sm placeholder:text-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 transition-all shadow-inner"
+                    className={`w-full pl-8 pr-10 py-3 rounded-2xl bg-white border-2 font-bold text-game-dark text-sm placeholder:text-stone-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 transition-all shadow-inner ${
+                      usernameStatus === "taken"
+                        ? "border-red-400 bg-red-50/20"
+                        : usernameStatus === "available"
+                        ? "border-emerald-400 bg-emerald-50/20"
+                        : "border-stone-300 focus:border-game-orange"
+                    }`}
                   />
+                  <div className="absolute right-3.5 top-3.5">
+                    {usernameStatus === "checking" && <Loader2 className="w-4 h-4 animate-spin text-amber-500" />}
+                    {usernameStatus === "available" && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                    {usernameStatus === "taken" && <XCircle className="w-4 h-4 text-red-500" />}
+                  </div>
                 </div>
+
+                {usernameStatusMsg && usernameStatus !== "idle" && (
+                  <p
+                    className={`text-[11px] font-bold mt-1 flex items-center gap-1 ${
+                      usernameStatus === "available"
+                        ? "text-emerald-600"
+                        : usernameStatus === "taken"
+                        ? "text-red-600"
+                        : "text-stone-500"
+                    }`}
+                  >
+                    {usernameStatus === "available" ? "✓" : "⚠"} {usernameStatusMsg}
+                  </p>
+                )}
+              </div>
+
+              {/* Permanent Handle Lock Notice */}
+              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-[11px] font-semibold leading-relaxed">
+                <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Permanent Handle:</strong> Your @username cannot be changed after registration. It will be your permanent warrior ID across clans.
+                </span>
               </div>
 
               {formError && (
@@ -198,10 +310,24 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
 
               <button
                 type="submit"
-                className="w-full mt-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-game-orange to-amber-500 hover:from-game-orangeDark hover:to-orange-500 text-white font-black text-sm sm:text-base uppercase tracking-wider shadow-game-orange active:translate-y-1 transition-all flex items-center justify-center gap-2 border-2 border-amber-200 focus-visible:ring-3 focus-visible:ring-orange-400 outline-none"
+                disabled={isVerifying || usernameStatus === "taken"}
+                className={`w-full mt-2 py-3.5 px-6 rounded-2xl font-black text-sm sm:text-base uppercase tracking-wider shadow-game-orange active:translate-y-1 transition-all flex items-center justify-center gap-2 border-2 border-amber-200 focus-visible:ring-3 focus-visible:ring-orange-400 outline-none ${
+                  isVerifying || usernameStatus === "taken"
+                    ? "bg-stone-300 text-stone-500 cursor-not-allowed border-stone-200 shadow-none"
+                    : "bg-gradient-to-r from-game-orange to-amber-500 hover:from-game-orangeDark hover:to-orange-500 text-white"
+                }`}
               >
-                <span>Continue To Path</span>
-                <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Verifying Handle…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Continue To Path</span>
+                    <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                  </>
+                )}
               </button>
             </motion.form>
           )}

@@ -59,7 +59,42 @@ export interface Comrade {
   status: "friend" | "pending_sent" | "pending_received";
   lastActive: string;
   clanName?: string;
+  firebaseUid?: string;
 }
+
+export interface PublicWarriorProfile {
+  uid: string;
+  name: string;
+  username: string; // e.g., @shadow_monk
+  usernameClean: string; // e.g., shadow_monk (lowercase for unique lookup)
+  gender: Gender;
+  relationship?: RelationshipStatus;
+  elementalSkill: ElementalSkillId;
+  level: number;
+  streakDays: number;
+  animeTitle: string;
+  avatarColor: string;
+  clanName?: string;
+  photoURL?: string;
+  updatedAt?: number;
+}
+
+export interface FriendRequestCloudDoc {
+  id: string;
+  fromUid: string;
+  fromName: string;
+  fromUsername: string;
+  fromGender: Gender;
+  fromSkill: ElementalSkillId;
+  fromStreak: number;
+  fromAnimeTitle: string;
+  fromAvatarColor: string;
+  toUid: string;
+  toUsername: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: number;
+}
+
 
 export type QuestionPolarity = "win_on_yes" | "slip_on_yes";
 

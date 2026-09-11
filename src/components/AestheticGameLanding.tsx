@@ -169,30 +169,35 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
     // Wait 2 seconds with slow rain, then proceed
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    if (currentUser) {
-      if (!state.isOnboarded) {
-        onStartOnboarding();
-      } else {
-        updateSettings({ selectedBgmTrack: "arena_japanese_girl_whisper", musicEnabled: true });
-      }
-      return;
-    }
-
     try {
+      if (currentUser) {
+        if (!state.isOnboarded) {
+          setIsTransitioning(false);
+          onStartOnboarding();
+        } else {
+          updateSettings({ selectedBgmTrack: "arena_japanese_girl_whisper", musicEnabled: true });
+        }
+        return;
+      }
+
       const res = await loginGoogle();
       if (res.success) {
         if (!res.isOnboarded) {
+          setIsTransitioning(false);
           onStartOnboarding();
         } else {
           updateSettings({ selectedBgmTrack: "arena_japanese_girl_whisper", musicEnabled: true });
         }
       } else {
+        setIsTransitioning(false);
         onStartOnboarding();
       }
     } catch {
+      setIsTransitioning(false);
       onStartOnboarding();
     } finally {
       setIsLoggingIn(false);
+      setIsTransitioning(false);
     }
   };
 
@@ -224,7 +229,8 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
             className="fixed inset-0 z-[200] bg-black pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1.6, ease: "easeInOut" }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, ease: "easeInOut" }}
           />
         )}
       </AnimatePresence>

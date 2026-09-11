@@ -33,11 +33,14 @@ import {
   Calendar,
 } from "lucide-react";
 
+import { PixelGameSkeleton } from "@/components/PixelGameSkeleton";
+
 export const TARGET_DEV_UID = "CHan2MohYMWJTHLlAlanNrZvq6b2";
 
 export function DevGodModeTestingDeck() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showPixelPreview, setShowPixelPreview] = useState(false);
   const [customLevelInput, setCustomLevelInput] = useState<string>("");
   const {
     state,
@@ -396,6 +399,19 @@ export function DevGodModeTestingDeck() {
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
                 <span>Reset Today's Log (Test Answering Again)</span>
               </button>
+
+              {/* Pixel Skeleton Loading Preview Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  soundEngine.playClick();
+                  setShowPixelPreview(true);
+                  setTimeout(() => setShowPixelPreview(false), 3500);
+                }}
+                className="w-full py-1.5 rounded-xl bg-gradient-to-r from-purple-950 via-amber-950 to-stone-900 hover:from-purple-900 border border-purple-500/70 text-amber-200 font-mono font-black text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-sm"
+              >
+                <span>👾 Preview Pixel Game Skeleton (3.5s)</span>
+              </button>
             </div>
 
             {/* 6. QUICK STREAK CONTROLS */}
@@ -431,6 +447,20 @@ export function DevGodModeTestingDeck() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-Screen Pixel Skeleton Preview (3.5s or dismissed by user) */}
+      {showPixelPreview && (
+        <div className="fixed inset-0 z-[120] bg-black">
+          <PixelGameSkeleton />
+          <button
+            type="button"
+            onClick={() => setShowPixelPreview(false)}
+            className="fixed top-4 right-4 z-[130] px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold text-xs rounded-xl shadow-lg cursor-pointer flex items-center gap-1"
+          >
+            <span>✕ Close Pixel Preview</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

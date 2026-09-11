@@ -9,9 +9,10 @@ import { Heart, Coins, Settings, AlertTriangle, Flame, ShieldAlert, Music, Clock
 interface TopNavBarProps {
   onOpenPause: () => void;
   onOpenPanic: () => void;
+  onOpenProfile?: () => void;
 }
 
-export function TopNavBar({ onOpenPause, onOpenPanic }: TopNavBarProps) {
+export function TopNavBar({ onOpenPause, onOpenPanic, onOpenProfile }: TopNavBarProps) {
   const { state, setActiveView, updateSettings } = useGame();
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight());
 
@@ -48,11 +49,19 @@ export function TopNavBar({ onOpenPause, onOpenPanic }: TopNavBarProps) {
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         {/* Top / Main Controls Row */}
         <div className="flex items-center justify-between gap-2">
-          {/* Left: Player Avatar & Level Badge */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Left: Player Avatar & Level Badge (Clickable to open profile & skill ranges) */}
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.playClick();
+              onOpenProfile?.();
+            }}
+            aria-label="Open warrior profile and elemental skill progression"
+            className="flex items-center gap-2 sm:gap-2.5 shrink-0 text-left hover:opacity-95 active:scale-95 transition-all cursor-pointer group focus:outline-none"
+          >
             <div className="relative">
               <div
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 border-2 border-amber-200 flex items-center justify-center font-black text-lg shadow-game-sm ${
+                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 border-2 border-amber-200 flex items-center justify-center font-black text-lg shadow-game-sm group-hover:border-amber-300 group-hover:shadow-game-md transition-all ${
                   isHpCritical ? "ring-2 ring-red-500 animate-pulse" : ""
                 } ${auraClass}`}
               >
@@ -65,14 +74,14 @@ export function TopNavBar({ onOpenPause, onOpenPanic }: TopNavBarProps) {
             </div>
 
             <div className="min-w-0">
-              <div className="text-xs font-black tracking-wide text-amber-200 truncate max-w-[95px] sm:max-w-[130px] flex items-center gap-1">
+              <div className="text-xs font-black tracking-wide text-amber-200 truncate max-w-[95px] sm:max-w-[130px] flex items-center gap-1 group-hover:text-amber-100 transition-colors">
                 <span className="truncate">{state.profile.name || "Warrior"}</span>
               </div>
               <div className="text-[10px] font-bold text-amber-300/80 truncate max-w-[95px] sm:max-w-[130px] font-mono">
                 {state.profile.username || "@warrior"}
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Right Action Icons on Mobile (Coins, Panic, Music, Settings) */}
           <div className="flex sm:hidden items-center gap-1.5 shrink-0">

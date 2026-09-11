@@ -17,16 +17,33 @@ import { MissedDayResetModal } from "@/components/MissedDayResetModal";
 import { DevGodModeTestingDeck } from "@/components/DevGodModeTestingDeck";
 import { AestheticGameLanding } from "@/components/AestheticGameLanding";
 import { GameStoreView } from "@/components/GameStoreView";
+import { PixelGameSkeleton } from "@/components/PixelGameSkeleton";
+import { UserProfileModal } from "@/components/UserProfileModal";
 
 export default function HomePage() {
-  const { state, completeIntro, submitOnboarding } = useGame();
+  const { state, isLoaded, completeIntro, submitOnboarding, currentUser } = useGame();
   const [isPauseOpen, setIsPauseOpen] = useState(false);
   const [isPanicOpen, setIsPanicOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Whenever onboarded status transitions (e.g. logout or initial sync), dismiss onboarding dialog
+  // 0. RETRO PIXEL GAME SKELETON LOADING (While hydrating local/cloud game state)
+  if (!isLoaded) {
+    return <PixelGameSkeleton />;
+  }
+
+  // Mandatory onboarding gating: If logged in with Google but not yet onboarded, automatically open onboarding modal
   useEffect(() => {
-    setShowOnboarding(false);
+    if (isLoaded && currentUser && !state.isOnboarded) {
+      setShowOnboarding(true);
+    }
+  }, [isLoaded, currentUser, state.isOnboarded]);
+
+  // Dismiss onboarding modal once onboarding is completed
+  useEffect(() => {
+    if (state.isOnboarded) {
+      setShowOnboarding(false);
+    }
   }, [state.isOnboarded]);
 
   // 1. AESTHETIC GAME LANDING PAGE (Lost in Random / Moody Cinematic Style with Video)
@@ -64,6 +81,7 @@ export default function HomePage() {
         <TopNavBar
           onOpenPause={() => setIsPauseOpen(true)}
           onOpenPanic={() => setIsPanicOpen(true)}
+          onOpenProfile={() => setIsProfileOpen(true)}
         />
 
         {/* Content Deck - Expands smoothly across all screen sizes */}
@@ -78,6 +96,9 @@ export default function HomePage() {
         {/* Bottom Navigation Dock */}
         <BottomNavBar />
       </div>
+
+      {/* Player Profile & Elemental Skill Ranges Modal */}
+      <UserProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
 
       {/* Pause & Sound Menu (Exact match to Reference Image) */}
       <PauseModal isOpen={isPauseOpen} onClose={() => setIsPauseOpen(false)} />

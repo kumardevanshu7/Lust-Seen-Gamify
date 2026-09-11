@@ -61,3 +61,39 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* =========================================================================
+   PIXEL-STYLE RETRO GAMING SKELETON & CRT SCANLINES
+   ========================================================================= */
+
+@keyframes pixel-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.pixel-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(251, 191, 36, 0.06) 0%,
+    rgba(251, 191, 36, 0.24) 50%,
+    rgba(251, 191, 36, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: pixel-shimmer 1.8s steps(12) infinite;
+}
+
+.pixel-scanlines {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0.35)
+  );
+  background-size: 100% 4px;
+}
+

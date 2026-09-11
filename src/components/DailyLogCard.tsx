@@ -7,6 +7,7 @@ import { soundEngine } from "@/lib/soundEngine";
 import { getTodayDateString } from "@/lib/gameLogic";
 import { QuestionBucketModal } from "@/components/QuestionBucketModal";
 import { ElementalCelebrationModal } from "@/components/ElementalCelebrationModal";
+import { PixelCardSkeleton } from "@/components/PixelGameSkeleton";
 import {
   CheckCircle2,
   XCircle,
@@ -79,16 +80,18 @@ export function DailyLogCard() {
     }
 
     setIsSubmitting(true);
-    const result = submitDailyLog(answers);
-    const resultPayload = {
-      xp: result.xpEarned,
-      hpDelta: result.hpDelta,
-      isClean: result.isClean,
-    };
-    setSubmissionResult(resultPayload);
-    setIsSubmitting(false);
-    setValidationError("");
-    setShowSkillCelebration(true);
+    setTimeout(() => {
+      const result = submitDailyLog(answers);
+      const resultPayload = {
+        xp: result.xpEarned,
+        hpDelta: result.hpDelta,
+        isClean: result.isClean,
+      };
+      setSubmissionResult(resultPayload);
+      setIsSubmitting(false);
+      setValidationError("");
+      setShowSkillCelebration(true);
+    }, 600);
   };
 
   const handleCreateCustom = (e: React.FormEvent) => {
@@ -300,9 +303,11 @@ export function DailyLogCard() {
         </div>
       )}
 
-      {/* Questions Deck: Displaying the Selected 7 Questions */}
+      {/* Questions Deck: Displaying the Selected 7 Questions (or Pixel Game Skeleton when submitting) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-        {displayQuestions.map((question, index) => {
+        {isSubmitting
+          ? [1, 2, 3, 4, 5, 6].map((i) => <PixelCardSkeleton key={i} index={i} />)
+          : displayQuestions.map((question, index) => {
           const answer = answers[question.id];
           const isFemale = state.profile.gender === "female";
           const questionText = isEnglish
