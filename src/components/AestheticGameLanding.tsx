@@ -25,6 +25,8 @@ import {
   AlertOctagon,
   Mail,
   ChevronRight,
+  ChevronDown,
+  BookOpen,
   Compass,
   LogIn,
 } from "lucide-react";
@@ -47,6 +49,9 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
   const [codexModalOpen, setCodexModalOpen] = useState(false);
   const [codexTab, setCodexTab] = useState<CodexTab>("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [codexDropdownOpen, setCodexDropdownOpen] = useState(false);
+  const codexDropdownRef = useRef<HTMLDivElement>(null);
+  const menuDropdownRef = useRef<HTMLDivElement>(null);
   // isTransitioning: true when Enter Arena clicked — triggers slow rain + fade-out
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -132,6 +137,32 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideo, isMuted]);
+
+  // Close dropdowns on outside click or Escape key
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (codexDropdownRef.current && !codexDropdownRef.current.contains(event.target as Node)) {
+        setCodexDropdownOpen(false);
+      }
+      if (menuDropdownRef.current && !menuDropdownRef.current.contains(event.target as Node)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setCodexDropdownOpen(false);
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   const handleToggleBackground = (targetVid: "video-1" | "video-2") => {
     soundEngine.playClick();
@@ -283,15 +314,141 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
       {/* 2. TOP NAVIGATION BAR */}
       <header className="relative z-20 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 sm:py-4 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:items-center sm:justify-between">
 
-        {/* ── ROW 1 / LEFT: Brand Logo + Menu Pill + (Mobile-only CTA) ── */}
-        <div className="w-full flex items-center justify-between sm:w-auto gap-2 sm:gap-4 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
-            <div className="relative">
+        {/* ── ROW 1 / LEFT: Brand Logo + Game Codex Dropdown + Menu Pill + (Mobile-only CTA) ── */}
+        <div className="w-full flex items-center justify-between sm:w-auto gap-2 sm:gap-3 lg:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+            {/* Stylized Gothic Title Logo */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <span className="text-rose-500 text-sm sm:text-base select-none">🔥</span>
+              <h1 className="text-sm sm:text-base lg:text-lg font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-stone-100 to-amber-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] font-serif uppercase whitespace-nowrap shrink-0">
+                Control Urge
+              </h1>
+            </div>
+
+            {/* Game Codex Dropdown (Visible on sm: and up) */}
+            <div className="relative hidden sm:block" ref={codexDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  soundEngine.playClick();
+                  setCodexDropdownOpen((prev) => !prev);
+                  if (mobileMenuOpen) setMobileMenuOpen(false);
+                }}
+                aria-expanded={codexDropdownOpen}
+                aria-label="Open Game Codex Guides"
+                className={`px-2.5 sm:px-3.5 py-1.5 rounded-full border backdrop-blur-md text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all outline-none cursor-pointer shadow-sm active:scale-95 shrink-0 ${
+                  codexDropdownOpen
+                    ? "bg-amber-500/25 border-amber-400 text-amber-200 ring-2 ring-amber-400/30"
+                    : "bg-white/10 hover:bg-white/20 border-white/20 text-stone-200 hover:text-white"
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
+                <span>Game Codex</span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${
+                    codexDropdownOpen ? "rotate-180 text-amber-300" : ""
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+
+              <AnimatePresence>
+                {codexDropdownOpen && (
+                  <>
+                    {/* Click-away backdrop */}
+                    <div
+                      onClick={() => setCodexDropdownOpen(false)}
+                      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
+                    />
+
+                    {/* Codex Dropdown Floating Menu */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      className="absolute top-full left-0 mt-2 w-72 sm:w-80 rounded-2xl bg-[#140c08]/95 border-2 border-amber-800/80 shadow-[0_15px_40px_rgba(0,0,0,0.85)] p-3 text-stone-200 z-50 backdrop-blur-xl space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between px-2 pt-1 pb-1.5 border-b border-white/10">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                          Arcade Codex & Guides
+                        </span>
+                        <span className="text-[9px] font-mono text-stone-400">
+                          Interactive
+                        </span>
+                      </div>
+
+                      {[
+                        {
+                          tab: "overview" as CodexTab,
+                          icon: <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />,
+                          title: "Codex Overview",
+                          subtitle: "Dopamine detox & habit neuroscience",
+                        },
+                        {
+                          tab: "skills" as CodexTab,
+                          icon: <Zap className="w-4 h-4 text-cyan-400 shrink-0" />,
+                          title: "Elemental Skills",
+                          subtitle: "10 warrior disciplines & progression perks",
+                        },
+                        {
+                          tab: "clans" as CodexTab,
+                          icon: <Shield className="w-4 h-4 text-rose-400 shrink-0" />,
+                          title: "Anime Clans",
+                          subtitle: "Guild pledges, co-op raids & vows",
+                        },
+                        {
+                          tab: "rules" as CodexTab,
+                          icon: <FileText className="w-4 h-4 text-emerald-400 shrink-0" />,
+                          title: "Rules & Bucket",
+                          subtitle: "Snake path leveling & daily vows",
+                        },
+                      ].map((item) => (
+                        <button
+                          key={item.tab}
+                          type="button"
+                          onClick={() => {
+                            soundEngine.playClick();
+                            setCodexDropdownOpen(false);
+                            openCodex(item.tab);
+                          }}
+                          className="w-full text-left p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/5 hover:border-amber-500/40 transition-all group flex items-center justify-between cursor-pointer active:scale-[0.99]"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-1.5 rounded-lg bg-black/40 border border-white/10 group-hover:border-amber-400/30 group-hover:bg-amber-950/40 transition-colors">
+                              {item.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-black text-stone-100 group-hover:text-amber-200 transition-colors truncate">
+                                {item.title}
+                              </div>
+                              <div className="text-[10px] text-stone-400 group-hover:text-stone-300 truncate">
+                                {item.subtitle}
+                              </div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-stone-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                        </button>
+                      ))}
+
+                      <div className="pt-2 border-t border-white/10 px-2 flex items-center justify-between text-[10px] text-stone-400">
+                        <span>Click any guide to open</span>
+                        <span className="text-amber-400 font-bold font-mono">ESC to close</span>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Menu Dropdown Button (Company, Legal, About) */}
+            <div className="relative" ref={menuDropdownRef}>
               <button
                 type="button"
                 onClick={() => {
                   soundEngine.playClick();
                   setMobileMenuOpen(!mobileMenuOpen);
+                  if (codexDropdownOpen) setCodexDropdownOpen(false);
                 }}
                 aria-expanded={mobileMenuOpen}
                 aria-label="Open navigation and legal menu"
@@ -378,22 +535,23 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
                       </div>
 
                       {/* 3. Game Codex Tabs Access */}
-                      <div className="pt-2 border-t border-white/10 space-y-1">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 px-2 py-0.5">
-                          Game Guides
+                      <div className="pt-2 border-t border-white/10 space-y-1.5">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-amber-400 px-2 py-0.5 flex items-center justify-between">
+                          <span>Game Guides & Codex</span>
+                          <span className="text-[9px] font-mono text-stone-400">Interactive</span>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5">
                           {[
                             { label: "📖 Overview", tab: "overview" as CodexTab },
                             { label: "⚡ 10 Skills", tab: "skills" as CodexTab },
-                            { label: "⛩️ Anime Clans", tab: "clans" as CodexTab },
-                            { label: "📜 Snake Rules", tab: "rules" as CodexTab },
+                            { label: "⛩️ Clans", tab: "clans" as CodexTab },
+                            { label: "📜 Rules & Bucket", tab: "rules" as CodexTab },
                           ].map(({ label, tab }) => (
                             <button
                               key={tab}
                               type="button"
                               onClick={() => { setMobileMenuOpen(false); openCodex(tab); }}
-                              className="text-left px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-stone-300 cursor-pointer"
+                              className="text-left px-2.5 py-2 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/10 hover:border-amber-400/40 text-[11px] font-bold text-stone-200 cursor-pointer transition-all active:scale-95 truncate"
                             >
                               {label}
                             </button>
@@ -410,11 +568,6 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
                 )}
               </AnimatePresence>
             </div>
-
-            {/* Stylized Gothic Title Logo */}
-            <h1 className="text-sm sm:text-lg lg:text-xl font-black tracking-tight sm:tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-stone-200 to-rose-200 drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] font-serif uppercase whitespace-nowrap shrink-0">
-              Control Urge
-            </h1>
           </div>
 
           {/* Mobile-Only Top Right "Enter Arena" Button (Always 100% visible, never cut off) */}
@@ -428,23 +581,6 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
             </button>
           </div>
         </div>
-
-        {/* ── CENTER: Nav Links (Visible only on xl: to prevent overlap on laptops & tablets) ── */}
-        <nav
-          aria-label="Landing site navigation"
-          className="hidden xl:flex items-center gap-6 lg:gap-8 text-xs font-bold tracking-wider text-stone-300 uppercase"
-        >
-          {[
-            { label: "Overview", tab: "overview" as CodexTab },
-            { label: "Elemental Skills", tab: "skills" as CodexTab },
-            { label: "Anime Clans", tab: "clans" as CodexTab },
-            { label: "Rules & Bucket", tab: "rules" as CodexTab },
-          ].map(({ label, tab }) => (
-            <button key={tab} type="button" onClick={() => openCodex(tab)} className="hover:text-white transition-colors cursor-pointer">
-              {label}
-            </button>
-          ))}
-        </nav>
 
         {/* ── RIGHT (Desktop & Tablet): Media Switcher + Audio + Google + Enter Arena ── */}
         <div className="hidden sm:flex items-center gap-2 lg:gap-3 shrink-0">
@@ -500,8 +636,8 @@ export function AestheticGameLanding({ onStartOnboarding }: AestheticGameLanding
             )}
           </button>
 
-          {/* Language Flag (hidden on smaller tablet screens) */}
-          <div className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-stone-300">
+          {/* Language Flag (hidden on smaller screens) */}
+          <div className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-stone-300">
             <Globe className="w-3.5 h-3.5 text-rose-400" />
             <span>EN</span>
           </div>

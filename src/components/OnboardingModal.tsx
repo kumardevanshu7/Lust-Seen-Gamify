@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ElementalSkillId, Gender, RelationshipStatus } from "@/types/game";
-import { ELEMENTAL_SKILLS } from "@/lib/gameLogic";
+import { ELEMENTAL_SKILLS, getSkillGifUrl } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import { User, Heart, ArrowRight, Check, Shield, Sparkles, AtSign, Zap, X, Lock, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useGame } from "@/context/GameContext";
@@ -459,18 +459,16 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                     className="p-2.5 rounded-2xl bg-gradient-to-r from-amber-100/90 via-orange-100/80 to-amber-100/90 border-2 border-amber-300 flex items-center justify-between shadow-sm overflow-hidden relative"
                   >
                     <div className="flex items-center gap-2.5 z-10">
-                      <motion.span
-                        key={`icon-${activeSkill.id}`}
-                        initial={{ scale: 0.5, rotate: -20 }}
-                        animate={{ scale: [1, 1.25, 1], rotate: [0, 8, 0] }}
-                        transition={{ duration: 0.35 }}
-                        className="text-2xl drop-shadow-sm"
-                      >
-                        {activeSkill.icon}
-                      </motion.span>
+                      <div className="w-12 h-12 rounded-xl bg-black/40 border border-amber-300 p-0.5 shrink-0 overflow-hidden flex items-center justify-center shadow-inner">
+                        <img
+                          src={getSkillGifUrl(activeSkill.name, gender === "female" ? "girls" : "boys")}
+                          alt={activeSkill.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
                       <div>
                         <div className="text-xs font-black text-game-dark flex items-center gap-1.5">
-                          <span>{activeSkill.name}</span>
+                          <span>{activeSkill.icon} {activeSkill.name}</span>
                           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-200/80 text-orange-950">
                             Awakened
                           </span>

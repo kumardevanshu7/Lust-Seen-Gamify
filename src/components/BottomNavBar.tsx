@@ -3,7 +3,7 @@
 import React from "react";
 import { useGame } from "@/context/GameContext";
 import { soundEngine } from "@/lib/soundEngine";
-import { CheckSquare, Trophy, Users, BarChart3, ShoppingBag } from "lucide-react";
+import { CheckSquare, Trophy, Users, BarChart3, ShoppingBag, Zap } from "lucide-react";
 
 export function BottomNavBar() {
   const { state, setActiveView } = useGame();
@@ -11,8 +11,14 @@ export function BottomNavBar() {
   const navItems = [
     {
       id: "daily" as const,
-      label: "Daily Log",
+      label: "Daily",
       icon: <CheckSquare className="w-5 h-5" />,
+      locked: false,
+    },
+    {
+      id: "skills" as const,
+      label: "Skills",
+      icon: <Zap className="w-5 h-5" />,
       locked: false,
     },
     {
@@ -23,7 +29,7 @@ export function BottomNavBar() {
     },
     {
       id: "achievers" as const,
-      label: "Collab Titles",
+      label: "Titles",
       icon: <Trophy className="w-5 h-5" />,
       locked: false,
     },

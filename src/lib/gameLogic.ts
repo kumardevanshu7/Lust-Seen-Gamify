@@ -155,6 +155,12 @@ export const ELEMENTAL_SKILLS: ElementalSkill[] = [
   },
 ];
 
+// Helper to get animated battle avatar GIF URL for any elemental skill and gender
+export function getSkillGifUrl(skillName: string, gender: "boys" | "girls" | "male" | "female" = "boys"): string {
+  const folder = gender === "female" || gender === "girls" ? "girls" : "boys";
+  return `/skills/${folder}/${encodeURIComponent(skillName)}.gif`;
+}
+
 // Anime Achievers (Available right away as Collab Title Personas!)
 export const ANIME_ACHIEVERS: AnimeAchiever[] = [
   // Male heroes

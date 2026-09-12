@@ -19,6 +19,7 @@ import { AestheticGameLanding } from "@/components/AestheticGameLanding";
 import { GameStoreView } from "@/components/GameStoreView";
 import { PixelGameSkeleton } from "@/components/PixelGameSkeleton";
 import { UserProfileModal } from "@/components/UserProfileModal";
+import { ElementalSkillsView } from "@/components/ElementalSkillsView";
 
 export default function HomePage() {
   const { state, isLoaded, completeIntro, submitOnboarding, currentUser } = useGame();
@@ -87,6 +88,7 @@ export default function HomePage() {
         {/* Content Deck - Expands smoothly across all screen sizes */}
         <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-28 sm:pb-32 overflow-y-auto overflow-x-hidden">
           {state.activeView === "daily" && <DailyLogCard />}
+          {state.activeView === "skills" && <ElementalSkillsView />}
           {state.activeView === "store" && <GameStoreView />}
           {state.activeView === "achievers" && <AnimeAchieversView />}
           {state.activeView === "clans" && <ClanHallView />}

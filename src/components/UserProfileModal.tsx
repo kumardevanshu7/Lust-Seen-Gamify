@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGame } from "@/context/GameContext";
-import { ELEMENTAL_SKILLS, getXpRequiredForLevel, getMaxHpForLevel } from "@/lib/gameLogic";
+import { ELEMENTAL_SKILLS, getXpRequiredForLevel, getMaxHpForLevel, getSkillGifUrl } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import {
   X,
@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   Crown,
   Compass,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 import { ElementalSkillId } from "@/types/game";
 
@@ -91,6 +93,9 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
     ELEMENTAL_SKILLS.find((s) => s.id === state.profile.elementalSkill) || ELEMENTAL_SKILLS[0];
   const previewSkillObj =
     ELEMENTAL_SKILLS.find((s) => s.id === selectedSkillPreview) || currentSkill;
+  const initialGender = state.profile.gender === "female" ? "girls" : "boys";
+  const [genderPreview, setGenderPreview] = useState<"boys" | "girls">(initialGender);
+  const [previewReplayKey, setPreviewReplayKey] = useState<number>(Date.now());
 
   // Determine current tier from level
   const currentTier =
@@ -393,10 +398,46 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                 </div>
               </div>
 
-              {/* 10 Disciplines Preview Switcher */}
-              <div className="pt-2 border-t-2 border-stone-200 space-y-2.5">
-                <div className="text-xs font-black uppercase tracking-wider text-stone-700">
-                  Preview 10 Elemental Disciplines
+              {/* 10 Disciplines Preview Switcher & Animated Avatar GIF Player */}
+              <div className="pt-2 border-t-2 border-stone-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-black uppercase tracking-wider text-stone-700">
+                    Preview 10 Elemental Disciplines
+                  </div>
+
+                  {/* Boys / Girls Toggle */}
+                  <div className="flex items-center bg-stone-200 p-0.5 rounded-xl border border-stone-300 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playToggle(true);
+                        setGenderPreview("boys");
+                        setPreviewReplayKey(Date.now());
+                      }}
+                      className={`px-2 py-1 rounded-lg transition-all ${
+                        genderPreview === "boys"
+                          ? "bg-game-orange text-white shadow-sm font-black"
+                          : "text-stone-600 hover:text-stone-900"
+                      }`}
+                    >
+                      🥋 Boys
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playToggle(false);
+                        setGenderPreview("girls");
+                        setPreviewReplayKey(Date.now());
+                      }}
+                      className={`px-2 py-1 rounded-lg transition-all ${
+                        genderPreview === "girls"
+                          ? "bg-rose-500 text-white shadow-sm font-black"
+                          : "text-stone-600 hover:text-stone-900"
+                      }`}
+                    >
+                      🌸 Girls
+                    </button>
+                  </div>
                 </div>
 
                 {/* Horizontal chips */}
@@ -408,10 +449,11 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                       onClick={() => {
                         soundEngine.playClick();
                         setSelectedSkillPreview(s.id);
+                        setPreviewReplayKey(Date.now());
                       }}
                       className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 flex items-center gap-1 border-2 transition-all cursor-pointer ${
                         selectedSkillPreview === s.id
-                          ? "bg-game-orange text-white border-game-orange shadow-game-sm"
+                          ? "bg-game-orange text-white border-game-orange shadow-game-sm ring-2 ring-amber-300"
                           : "bg-white text-stone-700 border-stone-200 hover:border-stone-400"
                       }`}
                     >
@@ -421,26 +463,56 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                   ))}
                 </div>
 
-                {/* Selected Discipline Details Card */}
-                <div className="p-4 rounded-2xl bg-white border-2 border-amber-200 shadow-game-sm space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{previewSkillObj.icon}</span>
-                    <div>
-                      <div className="font-black text-sm text-game-dark">
+                {/* Selected Discipline Details Card with Animated Battle GIF */}
+                <div className="p-4 rounded-2xl bg-gradient-to-b from-[#22130a] to-[#150b06] border-2 border-amber-900/60 shadow-game-sm text-stone-100 flex flex-col sm:flex-row items-center gap-4">
+                  {/* GIF Container */}
+                  <div
+                    className="w-36 h-36 sm:w-40 sm:h-40 rounded-2xl bg-black/60 border-2 flex items-center justify-center p-2 relative shrink-0 shadow-inner overflow-hidden"
+                    style={{ borderColor: previewSkillObj.color }}
+                  >
+                    <img
+                      key={`${previewSkillObj.id}-${genderPreview}-${previewReplayKey}`}
+                      src={getSkillGifUrl(previewSkillObj.name, genderPreview)}
+                      alt={`${previewSkillObj.name} battle avatar`}
+                      className="w-full h-full object-contain drop-shadow"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playClick();
+                        setPreviewReplayKey(Date.now());
+                      }}
+                      className="absolute bottom-1.5 right-1.5 p-1.5 rounded-lg bg-black/70 hover:bg-black/90 text-amber-300 border border-white/20 transition-all active:scale-95"
+                      title="Replay animation"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Lore & Perk */}
+                  <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <span className="text-xl">{previewSkillObj.icon}</span>
+                      <div className="font-black text-sm text-white">
                         {previewSkillObj.name}
                         {previewSkillObj.id === state.profile.elementalSkill && (
-                          <span className="ml-1.5 text-xs text-game-orange font-bold">
-                            (Your Chosen Element)
+                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-bold uppercase">
+                            Chosen
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-stone-500 font-medium">
-                        {previewSkillObj.description}
-                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">
+                        {previewSkillObj.tag}
+                      </span>
                     </div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
-                    ⚡ Discipline Perk: {previewSkillObj.perk}
+
+                    <p className="text-xs text-stone-300 font-medium leading-relaxed">
+                      {previewSkillObj.description}
+                    </p>
+
+                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-bold text-left">
+                      ⚡ Combat Perk: {previewSkillObj.perk}
+                    </div>
                   </div>
                 </div>
               </div>

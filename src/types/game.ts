@@ -212,5 +212,5 @@ export interface GameState {
   activeBgmSongId: string; // Currently active Arena BGM track
   activeStreakShields: number; // Active shields protecting from missed days
   doubleXpDaysRemaining: number; // Active days of 2x XP
-  activeView: "daily" | "achievers" | "clans" | "stats" | "store";
+  activeView: "daily" | "achievers" | "clans" | "stats" | "store" | "skills";
 }

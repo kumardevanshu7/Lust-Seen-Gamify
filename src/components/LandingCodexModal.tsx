@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { soundEngine } from "@/lib/soundEngine";
-import { ELEMENTAL_SKILLS, ANIME_CLANS } from "@/lib/gameLogic";
+import { ELEMENTAL_SKILLS, ANIME_CLANS, getSkillGifUrl } from "@/lib/gameLogic";
 import {
   X,
   Compass,
@@ -22,6 +22,8 @@ import {
   ChevronRight,
   ShieldAlert,
   Award,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 
 export type CodexTab = "overview" | "skills" | "clans" | "rules";
@@ -48,6 +50,9 @@ export function LandingCodexModal({
   isOnboarded = false,
 }: LandingCodexModalProps) {
   const [activeTab, setActiveTab] = useState<CodexTab>(initialTab);
+  const [landingGender, setLandingGender] = useState<"boys" | "girls">("boys");
+  const [selectedCodexSkill, setSelectedCodexSkill] = useState<string>("fire");
+  const [gifReplayKey, setGifReplayKey] = useState<number>(Date.now());
 
   if (!isOpen) return null;
 
@@ -266,60 +271,174 @@ export function LandingCodexModal({
             {activeTab === "skills" && (
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between text-xs font-bold text-stone-400">
-                  <span>5 Starter Disciplines Revealed</span>
-                  <span className="text-amber-400 font-extrabold">5 Legendary Locked</span>
+                  <span>10 Avatar Battle Disciplines</span>
+                  {/* Gender toggle */}
+                  <div className="flex items-center bg-black/50 p-0.5 rounded-xl border border-white/10 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playToggle(true);
+                        setLandingGender("boys");
+                        setGifReplayKey(Date.now());
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        landingGender === "boys"
+                          ? "bg-game-orange text-white shadow-sm font-black"
+                          : "text-stone-400 hover:text-white"
+                      }`}
+                    >
+                      🥋 Boys
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playToggle(false);
+                        setLandingGender("girls");
+                        setGifReplayKey(Date.now());
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                        landingGender === "girls"
+                          ? "bg-rose-500 text-white shadow-sm font-black"
+                          : "text-stone-400 hover:text-white"
+                      }`}
+                    >
+                      🌸 Girls
+                    </button>
+                  </div>
                 </div>
 
-                {/* 5 Visible Starter Disciplines */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {ELEMENTAL_SKILLS.slice(0, 4).map((skill) => (
-                    <div
-                      key={skill.id}
-                      className="p-3 rounded-2xl bg-[#22130a] border border-amber-900/50 flex items-start gap-3"
-                    >
-                      <span className="text-2xl p-2 rounded-xl bg-black/40 border border-white/10 shrink-0">
-                        {skill.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
+                {/* Featured Live GIF Spotlight */}
+                {(() => {
+                  const activeSkillObj =
+                    ELEMENTAL_SKILLS.find((s) => s.id === selectedCodexSkill) ||
+                    ELEMENTAL_SKILLS[0];
+                  return (
+                    <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-[#2a170d] via-[#1c0f08] to-black border-2 border-amber-500/40 flex items-center gap-3.5 shadow-lg relative overflow-hidden">
+                      <div
+                        className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-black/60 border-2 flex items-center justify-center p-1 relative shrink-0 shadow-inner overflow-hidden"
+                        style={{ borderColor: activeSkillObj.color }}
+                      >
+                        <img
+                          key={`${activeSkillObj.id}-${landingGender}-${gifReplayKey}`}
+                          src={getSkillGifUrl(activeSkillObj.name, landingGender)}
+                          alt={activeSkillObj.name}
+                          className="w-full h-full object-contain drop-shadow"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundEngine.playClick();
+                            setGifReplayKey(Date.now());
+                          }}
+                          className="absolute bottom-1 right-1 p-1 rounded-md bg-black/70 hover:bg-black/90 text-amber-300 border border-white/20 transition-all active:scale-95 cursor-pointer"
+                          title="Restart GIF"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-sm text-white truncate">
-                            {skill.name}
+                          <span className="text-sm font-black text-white">
+                            {activeSkillObj.icon} {activeSkillObj.name}
                           </span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">
-                            {skill.badge}
+                            {activeSkillObj.badge}
                           </span>
                         </div>
                         <p className="text-[11px] text-stone-300 line-clamp-2 mt-0.5">
-                          {skill.description}
+                          {activeSkillObj.description}
                         </p>
                         <div className="text-[10px] text-emerald-400 font-bold mt-1">
-                          Perk: {skill.perk}
+                          Perk: {activeSkillObj.perk}
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })()}
+
+                {/* 5 Visible Starter Disciplines (Click to Play GIF in Spotlight) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {ELEMENTAL_SKILLS.slice(0, 4).map((skill) => {
+                    const isSelected = skill.id === selectedCodexSkill;
+                    return (
+                      <button
+                        key={skill.id}
+                        type="button"
+                        onClick={() => {
+                          soundEngine.playClick();
+                          setSelectedCodexSkill(skill.id);
+                          setGifReplayKey(Date.now());
+                        }}
+                        className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-[#2d180d] border-amber-400 ring-2 ring-amber-400/30"
+                            : "bg-[#22130a] hover:bg-[#2a170e] border-amber-900/50"
+                        }`}
+                      >
+                        <span className="text-2xl p-2 rounded-xl bg-black/40 border border-white/10 shrink-0">
+                          {skill.icon}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-sm text-white truncate">
+                              {skill.name}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">
+                              {skill.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-300 line-clamp-2 mt-0.5">
+                            {skill.description}
+                          </p>
+                          <div className="text-[10px] text-amber-300 font-bold mt-1 flex items-center gap-1">
+                            <Play className="w-2.5 h-2.5 fill-current text-amber-400" />
+                            <span>Click to play GIF</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* 5th Skill (Shinobi) */}
-                <div className="p-3 rounded-2xl bg-[#22130a] border border-amber-900/50 flex items-start gap-3">
-                  <span className="text-2xl p-2 rounded-xl bg-black/40 border border-white/10 shrink-0">
-                    🍃
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-sm text-white">Aerial Shinobi</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">
-                        Gale
+                {(() => {
+                  const shinobi = ELEMENTAL_SKILLS.find((s) => s.id === "wind") || ELEMENTAL_SKILLS[4];
+                  const isSelected = selectedCodexSkill === shinobi.id;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.playClick();
+                        setSelectedCodexSkill(shinobi.id);
+                        setGifReplayKey(Date.now());
+                      }}
+                      className={`w-full p-3 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-[#2d180d] border-amber-400 ring-2 ring-amber-400/30"
+                          : "bg-[#22130a] hover:bg-[#2a170e] border-amber-900/50"
+                      }`}
+                    >
+                      <span className="text-2xl p-2 rounded-xl bg-black/40 border border-white/10 shrink-0">
+                        {shinobi.icon}
                       </span>
-                    </div>
-                    <p className="text-[11px] text-stone-300 mt-0.5">
-                      Masters rhythmic 4-7-8 breathing evasion to slip through acute sexual cravings.
-                    </p>
-                    <div className="text-[10px] text-emerald-400 font-bold mt-1">
-                      Perk: Double Zen Coins awarded upon defeating Panic urges
-                    </div>
-                  </div>
-                </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-sm text-white">{shinobi.name}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">
+                            {shinobi.badge}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-300 mt-0.5">
+                          {shinobi.description}
+                        </p>
+                        <div className="text-[10px] text-amber-300 font-bold mt-1 flex items-center gap-1">
+                          <Play className="w-2.5 h-2.5 fill-current text-amber-400" />
+                          <span>Click to play GIF</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })()}
 
                 {/* 50% LOCKED ADVANCED CLASSES */}
                 <div className="relative rounded-2xl overflow-hidden border border-rose-500/40 p-4 bg-gradient-to-b from-white/[0.02] to-transparent">
