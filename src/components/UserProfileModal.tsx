@@ -87,9 +87,6 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
   const [selectedSkillPreview, setSelectedSkillPreview] = useState<ElementalSkillId>(
     state.profile.elementalSkill || "fire"
   );
-
-  if (!isOpen) return null;
-
   const currentSkill =
     ELEMENTAL_SKILLS.find((s) => s.id === state.profile.elementalSkill) || ELEMENTAL_SKILLS[0];
   const previewSkillObj =
@@ -117,14 +114,15 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto select-none">
-        <motion.div
-          initial={{ scale: 0.92, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.92, opacity: 0, y: 20 }}
-          transition={{ type: "spring", stiffness: 320, damping: 26 }}
-          className="w-full max-w-xl bg-[#fdfbf7] border-4 border-game-border rounded-3xl p-4 sm:p-6 shadow-game-card text-game-dark relative my-auto max-h-[92vh] overflow-y-auto"
-        >
+      {isOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto select-none">
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.92, opacity: 0, y: 20 }}
+            transition={{ type: "spring", stiffness: 320, damping: 26 }}
+            className="w-full max-w-xl bg-[#fdfbf7] border-4 border-game-border rounded-3xl p-4 sm:p-6 shadow-game-card text-game-dark relative my-auto max-h-[92vh] overflow-y-auto"
+          >
           {/* Close Button */}
           <button
             type="button"
@@ -464,6 +462,8 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
           </div>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 }
+

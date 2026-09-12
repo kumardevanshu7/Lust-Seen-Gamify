@@ -27,11 +27,6 @@ export default function HomePage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // 0. RETRO PIXEL GAME SKELETON LOADING (While hydrating local/cloud game state)
-  if (!isLoaded) {
-    return <PixelGameSkeleton />;
-  }
-
   // Mandatory onboarding gating: If logged in with Google but not yet onboarded, automatically open onboarding modal
   useEffect(() => {
     if (isLoaded && currentUser && !state.isOnboarded) {
@@ -45,6 +40,11 @@ export default function HomePage() {
       setShowOnboarding(false);
     }
   }, [state.isOnboarded]);
+
+  // 0. RETRO PIXEL GAME SKELETON LOADING (While hydrating local/cloud game state)
+  if (!isLoaded) {
+    return <PixelGameSkeleton />;
+  }
 
   // 1. AESTHETIC GAME LANDING PAGE (Lost in Random / Moody Cinematic Style with Video)
   if (!state.isOnboarded) {
