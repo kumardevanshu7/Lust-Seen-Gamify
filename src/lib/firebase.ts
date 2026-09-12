@@ -273,6 +273,29 @@ export async function claimUsernameAndPublishProfile(
   }
 }
 
+/**
+ * Updates specific fields on the public warrior profile (e.g., name, skill).
+ */
+export async function updateWarriorProfilePublicly(
+  uid: string,
+  updates: Partial<PublicWarriorProfile>
+): Promise<void> {
+  try {
+    const publicProfileDocRef = doc(db, "public_profiles", uid);
+    const dataToMerge: Record<string, any> = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    };
+    if (updates.name) {
+      dataToMerge.name = updates.name.trim();
+      dataToMerge.nameLower = updates.name.trim().toLowerCase();
+    }
+    await setDoc(publicProfileDocRef, dataToMerge, { merge: true });
+  } catch (err) {
+    console.warn("Error updating public profile:", err);
+  }
+}
+
 // In-memory cache for snappy Google-style instant search
 let cachedProfiles: PublicWarriorProfile[] = [];
 let lastCacheFetchTime = 0;

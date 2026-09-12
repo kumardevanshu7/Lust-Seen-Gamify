@@ -1,4 +1,4 @@
-import { AnimeAchiever, AnimeClan, Comrade, ElementalSkill, Gender } from "@/types/game";
+import { AnimeAchiever, AnimeClan, Comrade, ElementalSkill, ElementalSkillId, Gender, SkillProgress } from "@/types/game";
 
 // Exponential XP curve
 export function getXpRequiredForLevel(level: number): number {
@@ -154,6 +154,26 @@ export const ELEMENTAL_SKILLS: ElementalSkill[] = [
     particles: ["❄️", "🧊", "💠", "✨"],
   },
 ];
+
+// Exponential Skill Level XP requirement
+export function getSkillXpRequired(level: number): number {
+  if (level <= 1) return 100;
+  return Math.floor(100 * Math.pow(level, 1.25));
+}
+
+// Initial 10 Skills progress defaults (each starts at Level 1, 0 XP)
+export const DEFAULT_SKILLS_PROGRESS: Record<ElementalSkillId, SkillProgress> = {
+  fire: { level: 1, currentXp: 0, maxXp: 100 },
+  aqua: { level: 1, currentXp: 0, maxXp: 100 },
+  lightning: { level: 1, currentXp: 0, maxXp: 100 },
+  wizard: { level: 1, currentXp: 0, maxXp: 100 },
+  wind: { level: 1, currentXp: 0, maxXp: 100 },
+  earth: { level: 1, currentXp: 0, maxXp: 100 },
+  shadow: { level: 1, currentXp: 0, maxXp: 100 },
+  light: { level: 1, currentXp: 0, maxXp: 100 },
+  dragon: { level: 1, currentXp: 0, maxXp: 100 },
+  frost: { level: 1, currentXp: 0, maxXp: 100 },
+};
 
 // Helper to get animated battle avatar GIF URL for any elemental skill and gender
 export function getSkillGifUrl(skillName: string, gender: "boys" | "girls" | "male" | "female" = "boys"): string {

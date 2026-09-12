@@ -433,11 +433,14 @@ export function DailyLogCard() {
         {isTodayLocked ? (
           <button
             type="button"
-            disabled
-            className="w-full py-4 px-6 rounded-3xl bg-stone-800 border-2 border-stone-700 text-stone-300 font-black text-base sm:text-lg uppercase tracking-wider shadow-md flex items-center justify-center gap-3 cursor-not-allowed select-none"
+            onClick={() => {
+              soundEngine.playClick();
+              setShowSkillCelebration(true);
+            }}
+            className="w-full py-4 px-6 rounded-3xl bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 border-2 border-amber-500/50 hover:border-amber-400 text-amber-200 font-black text-sm sm:text-base uppercase tracking-wider shadow-lg flex items-center justify-center gap-2.5 cursor-pointer select-none transition-all active:scale-[0.99] group"
           >
-            <Lock className="w-6 h-6 text-amber-400 stroke-[2.5]" aria-hidden="true" />
-            <span>Today&apos;s Urge Log Locked In ({answeredQuestionsCount}/{totalQuestions})</span>
+            <Lock className="w-5 h-5 text-amber-400 stroke-[2.5]" aria-hidden="true" />
+            <span>Today&apos;s Log Locked · View Victory Celebration 🎉</span>
           </button>
         ) : (
           <button

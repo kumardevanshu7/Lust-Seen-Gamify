@@ -17,10 +17,11 @@ import {
   Flame,
   Info,
   ChevronRight,
+  Lock,
 } from "lucide-react";
 
 export function ElementalSkillsView() {
-  const { state, setActiveView } = useGame();
+  const { state, changeActiveSkill, setActiveView } = useGame();
 
   // Gender toggle: default to user's registered gender, allow instant switching
   const initialGender = state.profile.gender === "female" ? "girls" : "boys";
@@ -36,6 +37,16 @@ export function ElementalSkillsView() {
 
   const selectedSkill =
     ELEMENTAL_SKILLS.find((s) => s.id === selectedSkillId) || ELEMENTAL_SKILLS[0];
+
+  const isFemale = state.profile.gender === "female";
+  const isOwnGender = (gender === "girls" && isFemale) || (gender === "boys" && !isFemale);
+
+  const selectedProgress = (state.skillsProgress && state.skillsProgress[selectedSkill.id]) || {
+    level: 1,
+    currentXp: 0,
+    maxXp: 100,
+  };
+  const skillXpPercent = Math.max(0, Math.min(100, (selectedProgress.currentXp / selectedProgress.maxXp) * 100));
 
   const handleSelectSkill = (skill: ElementalSkill) => {
     soundEngine.playLevelUp();
@@ -60,7 +71,7 @@ export function ElementalSkillsView() {
     setReplayKey(Date.now());
   };
 
-  const isCurrentEquipped = state.profile.elementalSkill === selectedSkill.id;
+  const isCurrentEquipped = state.profile.elementalSkill === selectedSkill.id && isOwnGender;
   const currentGifUrl = getSkillGifUrl(selectedSkill.name, gender);
 
   return (
@@ -202,6 +213,28 @@ export function ElementalSkillsView() {
               </div>
             </div>
 
+            {/* Discipline Level & Skill EXP Bar */}
+            <div className="p-3 rounded-2xl bg-black/50 border border-amber-500/30 text-left space-y-1.5 shadow-inner">
+              <div className="flex items-center justify-between text-xs font-black">
+                <span className="text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>{selectedSkill.badge} Mastery Lv.{selectedProgress.level}</span>
+                </span>
+                <span className="text-stone-300 font-mono text-[11px] tabular-nums">
+                  {selectedProgress.currentXp} / {selectedProgress.maxXp} XP
+                </span>
+              </div>
+              <div className="bg-black/60 rounded-full h-2.5 overflow-hidden p-0.5 border border-[#54301a]">
+                <div
+                  className="bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 h-full rounded-full transition-all duration-500 shadow-sm"
+                  style={{ width: `${skillXpPercent}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-stone-400 font-medium">
+                Complete daily accountability check-ins while equipped to gain Skill EXP and level up this discipline.
+              </p>
+            </div>
+
             {/* Particle Auras & Tags */}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
               <span className="text-xs font-bold text-stone-400">Elemental Aura:</span>
@@ -217,29 +250,36 @@ export function ElementalSkillsView() {
 
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
-              {isCurrentEquipped ? (
-                <div className="px-4 py-2 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-black uppercase tracking-wider flex items-center gap-2">
+              {!isOwnGender ? (
+                <div
+                  title="Opposite gender preview only. You can only equip skills matching your registered gender."
+                  className="px-4 py-2.5 rounded-xl bg-stone-900/90 border border-stone-700 text-stone-300 text-xs font-bold flex items-center gap-2 shadow-inner"
+                >
+                  <Lock className="w-4 h-4 text-amber-400" />
+                  <span>{gender === "girls" ? "🌸 Girls (Preview Only · Gender Locked)" : "🥋 Boys (Preview Only · Gender Locked)"}</span>
+                </div>
+              ) : isCurrentEquipped ? (
+                <div className="px-4 py-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-game-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Equipped & Channeling Chakra</span>
+                  <span>Active Discipline (Equipped)</span>
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => {
-                    soundEngine.playClick();
-                    setActiveView("store");
+                    changeActiveSkill(selectedSkill.id);
                   }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-game-orange to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-game-sm active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-game-orange to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-game-sm active:scale-95 transition-all cursor-pointer ring-1 ring-amber-300"
                 >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Respec Discipline in Bazaar</span>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Equip & Activate Discipline</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={handleReplay}
-                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-stone-200 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-stone-200 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                 <span>Play Animation</span>
@@ -266,6 +306,11 @@ export function ElementalSkillsView() {
             const isSelected = skill.id === selectedSkillId;
             const isEquipped = skill.id === state.profile.elementalSkill;
             const skillGif = getSkillGifUrl(skill.name, gender);
+            const skillProg = (state.skillsProgress && state.skillsProgress[skill.id]) || {
+              level: 1,
+              currentXp: 0,
+              maxXp: 100,
+            };
 
             return (
               <motion.button
@@ -280,12 +325,22 @@ export function ElementalSkillsView() {
                     : "bg-[#fffbf0] hover:bg-amber-50/70 text-game-dark border-game-border"
                 }`}
               >
-                {/* Active Player Skill Badge */}
-                {isEquipped && (
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wide z-10 shadow-sm">
-                    Mine
+                {/* Badges: Level & Equipped / Preview */}
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-stone-900 text-[9px] font-black uppercase tracking-wide shadow-sm">
+                    Lv.{skillProg.level}
                   </span>
-                )}
+                  {isEquipped && isOwnGender && (
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wide shadow-sm">
+                      Active
+                    </span>
+                  )}
+                  {!isOwnGender && (
+                    <span className="px-1.5 py-0.5 rounded bg-stone-900/90 border border-stone-600 text-amber-300 text-[8px] font-bold">
+                      Preview
+                    </span>
+                  )}
+                </div>
 
                 {/* Animated Mini Thumbnail Preview */}
                 <div className="w-full aspect-square rounded-xl bg-black/40 border border-white/10 p-1.5 flex items-center justify-center mb-2 relative overflow-hidden group">

@@ -30,6 +30,12 @@ export interface ElementalSkill {
   particles: string[];
 }
 
+export interface SkillProgress {
+  level: number;
+  currentXp: number;
+  maxXp: number;
+}
+
 export interface UserProfile {
   name: string;
   username: string; // e.g., @shadow_monk
@@ -45,6 +51,7 @@ export interface UserProfile {
   email?: string;
   photoURL?: string;
   equippedAura?: string;
+  hasChangedUsernameOnce?: boolean;
 }
 
 export interface Comrade {
@@ -213,4 +220,5 @@ export interface GameState {
   activeStreakShields: number; // Active shields protecting from missed days
   doubleXpDaysRemaining: number; // Active days of 2x XP
   activeView: "daily" | "achievers" | "clans" | "stats" | "store" | "skills";
+  skillsProgress: Record<ElementalSkillId, SkillProgress>;
 }

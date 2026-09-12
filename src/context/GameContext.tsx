@@ -20,6 +20,8 @@ import {
   getTodayDateString,
   INITIAL_COMRADES,
   getMaxBucketQuestionsForLevel,
+  DEFAULT_SKILLS_PROGRESS,
+  getSkillXpRequired,
 } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import { STORE_ITEMS } from "@/lib/storeItems";
@@ -37,6 +39,8 @@ import {
   sendCloudFriendRequest,
   respondCloudFriendRequest,
   subscribeToIncomingFriendRequests,
+  checkUsernameAvailable,
+  updateWarriorProfilePublicly,
 } from "@/lib/firebase";
 
 interface GameContextType {
@@ -74,6 +78,9 @@ interface GameContextType {
   buySong: (songId: string, cost: number) => { success: boolean; message: string };
   useSurpassLevelsItem: () => { success: boolean; message: string };
   useSkillChangeItem: (newSkillId: ElementalSkillId) => { success: boolean; message: string };
+  changeActiveSkill: (newSkillId: ElementalSkillId) => { success: boolean; message: string };
+  updateWarriorName: (newName: string) => { success: boolean; message: string };
+  changeUsernameOnce: (newUsername: string) => Promise<{ success: boolean; message: string }>;
   useAttackGuildMateItem: (targetComradeName: string) => { success: boolean; message: string };
   logout: () => Promise<void>;
   setActiveView: (view: GameState["activeView"]) => void;
@@ -153,6 +160,7 @@ const initialDefaultState: GameState = {
   unlockedSongs: ["arena_japanese_girl_whisper", "arena_midnight_rain"],
   landingBackgroundVideo: "video-2",
   activeBgmSongId: "arena_japanese_girl_whisper",
+  skillsProgress: DEFAULT_SKILLS_PROGRESS,
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -219,6 +227,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           inventory: parsed.inventory || {},
           activeStreakShields: parsed.activeStreakShields || 0,
           doubleXpDaysRemaining: parsed.doubleXpDaysRemaining || 0,
+          skillsProgress: {
+            ...DEFAULT_SKILLS_PROGRESS,
+            ...(parsed.skillsProgress || {}),
+          },
         });
       }
     } catch (e) {
@@ -249,6 +261,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               ...prev,
               ...cloudState,
               isOnboarded: true,
+              skillsProgress: {
+                ...DEFAULT_SKILLS_PROGRESS,
+                ...(cloudState.skillsProgress || prev.skillsProgress || {}),
+              },
               profile: {
                 ...prev.profile,
                 ...cloudState.profile,
@@ -649,11 +665,39 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           soundEngine.playDamage();
         }
 
-        return {
+        // Active Skill Experience Gain & Progression
+        const activeSkillId = prev.profile.elementalSkill || "fire";
+        const currentSkillProg = (prev.skillsProgress && prev.skillsProgress[activeSkillId]) || {
+          level: 1,
+          currentXp: 0,
+          maxXp: 100,
+        };
+
+        let newSkillLevel = currentSkillProg.level;
+        let newSkillCurrentXp = currentSkillProg.currentXp + finalXp;
+        let newSkillMaxXp = currentSkillProg.maxXp || getSkillXpRequired(newSkillLevel);
+
+        while (newSkillCurrentXp >= newSkillMaxXp) {
+          newSkillCurrentXp -= newSkillMaxXp;
+          newSkillLevel += 1;
+          newSkillMaxXp = getSkillXpRequired(newSkillLevel);
+        }
+
+        const nextSkillsProgress = {
+          ...(prev.skillsProgress || DEFAULT_SKILLS_PROGRESS),
+          [activeSkillId]: {
+            level: newSkillLevel,
+            currentXp: newSkillCurrentXp,
+            maxXp: newSkillMaxXp,
+          },
+        };
+
+        const nextState = {
           ...prev,
           level: newLevel,
           currentXp: newCurrentXp,
           maxXp: newMaxXp,
+          skillsProgress: nextSkillsProgress,
           hp: nextHp,
           maxHp: newMaxHp,
           coins: prev.coins + coinsEarned + levelBonusCoins,
@@ -664,11 +708,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           isGameOver,
           history: [submission, ...prev.history.filter((h) => h.date !== today)],
         };
+
+        if (currentUser?.uid) {
+          saveGameStateToCloud(currentUser.uid, nextState);
+        }
+
+        return nextState;
       });
 
       return { xpEarned: finalXp, hpDelta: totalHpDelta, isClean: !hasSlips };
     },
-    [state.questions, state.streakDays, state.profile.elementalSkill, triggerConfetti]
+    [state.questions, state.streakDays, state.profile.elementalSkill, triggerConfetti, currentUser]
   );
 
   const addCustomQuestion = useCallback(
@@ -1013,6 +1063,141 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [state.inventory, triggerConfetti]
   );
 
+  // Direct Skill Equip in Skills Dojo
+  const changeActiveSkill = useCallback(
+    (newSkillId: ElementalSkillId): { success: boolean; message: string } => {
+      soundEngine.playSkillActivate(newSkillId);
+      triggerConfetti();
+
+      setState((prev) => {
+        const nextState: GameState = {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            elementalSkill: newSkillId,
+          },
+        };
+
+        if (currentUser?.uid) {
+          saveGameStateToCloud(currentUser.uid, nextState);
+          updateWarriorProfilePublicly(currentUser.uid, { elementalSkill: newSkillId });
+        }
+
+        return nextState;
+      });
+
+      return { success: true, message: `Equipped ${newSkillId.toUpperCase()} discipline!` };
+    },
+    [currentUser, triggerConfetti]
+  );
+
+  // Update Warrior Name
+  const updateWarriorName = useCallback(
+    (newName: string): { success: boolean; message: string } => {
+      const trimmed = newName.trim();
+      if (trimmed.length < 2) {
+        soundEngine.playDamage();
+        return { success: false, message: "Warrior name must be at least 2 characters!" };
+      }
+
+      soundEngine.playClick();
+      setState((prev) => {
+        const nextState: GameState = {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            name: trimmed,
+          },
+        };
+
+        if (currentUser?.uid) {
+          saveGameStateToCloud(currentUser.uid, nextState);
+          updateWarriorProfilePublicly(currentUser.uid, { name: trimmed });
+        }
+
+        return nextState;
+      });
+
+      return { success: true, message: "Warrior name updated successfully!" };
+    },
+    [currentUser]
+  );
+
+  // 1-Time Post-Onboarding Username Change
+  const changeUsernameOnce = useCallback(
+    async (newUsername: string): Promise<{ success: boolean; message: string }> => {
+      if (state.profile.hasChangedUsernameOnce) {
+        soundEngine.playDamage();
+        return {
+          success: false,
+          message: "Username has already been changed once! It is permanently locked.",
+        };
+      }
+
+      const cleanHandle = formatCleanUsername(newUsername);
+      if (cleanHandle.length < 3) {
+        soundEngine.playDamage();
+        return { success: false, message: "Username must be at least 3 characters!" };
+      }
+
+      const targetUid = currentUser?.uid || state.profile.firebaseUid || `warrior_${Date.now()}`;
+      const check = await checkUsernameAvailable(cleanHandle, targetUid);
+      if (!check.available) {
+        soundEngine.playDamage();
+        return { success: false, message: check.reason || "This username is already taken!" };
+      }
+
+      const formattedUsername = `@${cleanHandle}`;
+
+      const cloudResult = await claimUsernameAndPublishProfile(targetUid, {
+        name: state.profile.name,
+        username: formattedUsername,
+        gender: state.profile.gender,
+        relationship: state.profile.relationship,
+        elementalSkill: state.profile.elementalSkill,
+        level: state.level,
+        streakDays: state.streakDays,
+        animeTitle: state.profile.title,
+        photoURL: currentUser?.photoURL || state.profile.photoURL,
+      });
+
+      if (!cloudResult.success) {
+        soundEngine.playDamage();
+        return { success: false, message: cloudResult.error || "Failed to reserve username in cloud." };
+      }
+
+      soundEngine.playWin();
+      triggerConfetti();
+
+      if (typeof window !== "undefined" && targetUid) {
+        localStorage.setItem(`control_urge_user_username_${targetUid}`, formattedUsername);
+      }
+
+      setState((prev) => {
+        const nextState: GameState = {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            username: formattedUsername,
+            hasChangedUsernameOnce: true,
+          },
+        };
+
+        if (currentUser?.uid) {
+          saveGameStateToCloud(currentUser.uid, nextState);
+        }
+
+        return nextState;
+      });
+
+      return {
+        success: true,
+        message: `Username updated to ${formattedUsername}! (1-time change consumed)`,
+      };
+    },
+    [currentUser, state.profile, state.level, state.streakDays, triggerConfetti]
+  );
+
   // Use Attack Guild Mate Item
   const useAttackGuildMateItem = useCallback(
     (targetComradeName: string): { success: boolean; message: string } => {
@@ -1270,6 +1455,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           newLevel += 1;
           newMaxXp = getXpRequiredForLevel(newLevel);
         }
+
+        // Active Skill Progression
+        const activeSkillId = prev.profile.elementalSkill || "fire";
+        const currentSkillProg = (prev.skillsProgress && prev.skillsProgress[activeSkillId]) || {
+          level: 1,
+          currentXp: 0,
+          maxXp: 100,
+        };
+        let newSkillLevel = currentSkillProg.level;
+        let newSkillCurrentXp = currentSkillProg.currentXp + amount;
+        let newSkillMaxXp = currentSkillProg.maxXp || getSkillXpRequired(newSkillLevel);
+        while (newSkillCurrentXp >= newSkillMaxXp) {
+          newSkillCurrentXp -= newSkillMaxXp;
+          newSkillLevel += 1;
+          newSkillMaxXp = getSkillXpRequired(newSkillLevel);
+        }
+
         soundEngine.playLevelUp();
         triggerConfetti();
         const levelBonusCoins = (newLevel - prev.level) * 35;
@@ -1280,6 +1482,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           maxXp: newMaxXp,
           maxHp: getMaxHpForLevel(newLevel),
           coins: prev.coins + levelBonusCoins,
+          skillsProgress: {
+            ...(prev.skillsProgress || DEFAULT_SKILLS_PROGRESS),
+            [activeSkillId]: {
+              level: newSkillLevel,
+              currentXp: newSkillCurrentXp,
+              maxXp: newSkillMaxXp,
+            },
+          },
         };
       });
     },
@@ -1459,6 +1669,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         buySong,
         useSurpassLevelsItem,
         useSkillChangeItem,
+        changeActiveSkill,
+        updateWarriorName,
+        changeUsernameOnce,
         useAttackGuildMateItem,
         logout,
         setActiveView,

@@ -27,7 +27,13 @@ export function TopNavBar({ onOpenPause, onOpenPanic, onOpenProfile }: TopNavBar
   const hpPercent = Math.max(0, Math.min(100, (state.hp / state.maxHp) * 100));
   const xpPercent = Math.max(0, Math.min(100, (state.currentXp / state.maxXp) * 100));
   const isHpCritical = hpPercent <= 25;
-  const activeSkill = ELEMENTAL_SKILLS.find((s) => s.id === state.profile.elementalSkill);
+  const activeSkill = ELEMENTAL_SKILLS.find((s) => s.id === state.profile.elementalSkill) || ELEMENTAL_SKILLS[0];
+  const activeSkillProgress = (state.skillsProgress && state.skillsProgress[activeSkill.id]) || {
+    level: 1,
+    currentXp: 0,
+    maxXp: 100,
+  };
+  const skillXpPercent = Math.max(0, Math.min(100, (activeSkillProgress.currentXp / activeSkillProgress.maxXp) * 100));
 
   // Midnight countdown: total day seconds = 86400.
   // Reverse ("ulta") bar: depletes from 100% down to 0% as the day approaches midnight!
@@ -144,7 +150,7 @@ export function TopNavBar({ onOpenPause, onOpenPanic, onOpenProfile }: TopNavBar
           </div>
         </div>
 
-        {/* 3 Game Progress Bars (HP Forward, EXP Forward, Day Timer Reverse) */}
+        {/* 4 Game Progress Bars: HP, EXP, SKILL EXP, and Day Timer Reset */}
         <div className="flex-1 w-full max-w-lg mx-auto sm:mx-2 bg-[#231209]/90 border-2 border-[#54301a] rounded-2xl p-2 sm:px-3 sm:py-2 shadow-inner space-y-1.5">
           {/* BAR 1: Health (HP) Bar (Forward Progress) */}
           <div className="flex items-center gap-2 text-[10px] font-black">
@@ -172,7 +178,7 @@ export function TopNavBar({ onOpenPause, onOpenPanic, onOpenProfile }: TopNavBar
             </div>
           </div>
 
-          {/* BAR 2: Experience (EXP) Bar (Forward Progress) */}
+          {/* BAR 2: Experience (EXP) Bar (Player Account Level) */}
           <div className="flex items-center gap-2 text-[10px] font-black">
             <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0 text-amber-300">
               <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
@@ -192,7 +198,30 @@ export function TopNavBar({ onOpenPause, onOpenPanic, onOpenProfile }: TopNavBar
             </div>
           </div>
 
-          {/* BAR 3: Day Countdown Timer Bar (Reverse / "Ulta Baar" Progress: 100% -> 0%) */}
+          {/* BAR 3: Active Skill EXP Bar (Discipline Level) */}
+          <div className="flex items-center gap-2 text-[10px] font-black">
+            <div
+              className="flex items-center gap-1 w-16 sm:w-20 shrink-0 text-orange-300 truncate"
+              title={`${activeSkill.name} Discipline Lv.${activeSkillProgress.level}`}
+            >
+              <span className="text-xs shrink-0">{activeSkill.icon}</span>
+              <span className="uppercase tracking-wider text-[9px] truncate">{activeSkill.badge} Lv.{activeSkillProgress.level}</span>
+            </div>
+
+            {/* Skill EXP Bar Track */}
+            <div className="flex-1 bg-black/50 rounded-full h-2.5 sm:h-3 overflow-hidden p-0.5 border border-[#54301a] relative">
+              <div
+                className="bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 h-full rounded-full transition-all duration-500 shadow-sm"
+                style={{ width: `${skillXpPercent}%` }}
+              />
+            </div>
+
+            <div className="w-14 sm:w-16 text-right tabular-nums text-amber-300 text-[10px]">
+              {activeSkillProgress.currentXp}/{activeSkillProgress.maxXp}
+            </div>
+          </div>
+
+          {/* BAR 4: Day Countdown Timer Bar (Reverse / "Ulta Baar" Progress: 100% -> 0%) */}
           <div className="flex items-center gap-2 text-[10px] font-black">
             <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0 text-cyan-300">
               <Clock className="w-3 h-3 text-cyan-400" />
