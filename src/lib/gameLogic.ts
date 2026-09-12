@@ -161,6 +161,9 @@ export function getSkillXpRequired(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.25));
 }
 
+// Initial 2 Starter Skills (Fire & Water). Other 8 unlock at every 10 levels (Level 10, 20, 30...)
+export const DEFAULT_UNLOCKED_SKILLS: ElementalSkillId[] = ["fire", "aqua"];
+
 // Initial 10 Skills progress defaults (each starts at Level 1, 0 XP)
 export const DEFAULT_SKILLS_PROGRESS: Record<ElementalSkillId, SkillProgress> = {
   fire: { level: 1, currentXp: 0, maxXp: 100 },
@@ -174,6 +177,35 @@ export const DEFAULT_SKILLS_PROGRESS: Record<ElementalSkillId, SkillProgress> = 
   dragon: { level: 1, currentXp: 0, maxXp: 100 },
   frost: { level: 1, currentXp: 0, maxXp: 100 },
 };
+
+// Calculate total skill unlock slots earned based on warrior level
+// Level 1-9: 2 starter skills (fire, aqua)
+// Level 10-19: 3 skills (1 new choice)
+// Level 20-29: 4 skills (1 new choice)
+// Level 30-39: 5 skills
+// Level 40-49: 6 skills
+// Level 50-59: 7 skills
+// Level 60-69: 8 skills
+// Level 70-79: 9 skills
+// Level 80+: 10 skills (all disciplines unlocked)
+export function getTotalEarnedSkillSlots(level: number): number {
+  return Math.min(10, 2 + Math.floor(Math.max(0, level) / 10));
+}
+
+// Calculate how many skill unlock choices/tokens the warrior currently has ready to spend
+export function getAvailableSkillUnlockTokens(level: number, unlockedCount: number): number {
+  const earned = getTotalEarnedSkillSlots(level);
+  return Math.max(0, earned - unlockedCount);
+}
+
+// Calculate the level required for the next skill choice unlock
+export function getNextSkillUnlockLevel(unlockedCount: number): number | null {
+  if (unlockedCount >= 10) return null;
+  // If 2 unlocked -> Level 10
+  // If 3 unlocked -> Level 20
+  // If 4 unlocked -> Level 30
+  return Math.max(10, (unlockedCount - 1) * 10);
+}
 
 // Helper to get animated battle avatar GIF URL for any elemental skill and gender
 export function getSkillGifUrl(skillName: string, gender: "boys" | "girls" | "male" | "female" = "boys"): string {

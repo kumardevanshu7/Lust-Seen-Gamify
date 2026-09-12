@@ -634,4 +634,22 @@ export const STORE_ITEMS: StoreItem[] = [
     effectType: "unlock_premium_song",
     effectValue: "premium_warriors_ascent_pre",
   },
+
+  // ==========================================
+  // 9. LEVEL 30 MASTERY MILESTONE (NAME REFORGE SCROLL)
+  // ==========================================
+  {
+    id: "item_username_respec_lvl30",
+    name: "Master's Identity Reforge Scroll",
+    category: "relic",
+    cost: 100,
+    minLevel: 30,
+    icon: "📜",
+    description: "Sacred parchment bestowed upon warriors reaching Level 30. Unlocks an exclusive opportunity to change your permanent @username handle once more.",
+    benefit: "+1 Username Change Opportunity",
+    isConsumable: true,
+    badge: "Level 30 Milestone",
+    effectType: "unlock_username_change",
+    effectValue: 1,
+  },
 ];

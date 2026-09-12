@@ -161,11 +161,10 @@ export function ElementalCelebrationModal({
 
           {/* Animated Skill Battle Avatar GIF Stage */}
           <div className="relative my-4 flex flex-col items-center">
-            {/* Spinning Aura Ring */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-2 border-dashed border-amber-400/50 absolute -top-2"
+            {/* Ambient Background Aura Glow */}
+            <div
+              className="w-48 h-48 sm:w-56 sm:h-56 rounded-3xl blur-2xl opacity-40 absolute top-0 pointer-events-none"
+              style={{ backgroundColor: skill.color }}
             />
 
             {/* Avatar Frame with GIF */}

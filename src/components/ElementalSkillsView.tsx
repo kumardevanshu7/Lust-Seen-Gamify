@@ -3,7 +3,13 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGame } from "@/context/GameContext";
-import { ELEMENTAL_SKILLS, getSkillGifUrl } from "@/lib/gameLogic";
+import {
+  ELEMENTAL_SKILLS,
+  getSkillGifUrl,
+  DEFAULT_UNLOCKED_SKILLS,
+  getAvailableSkillUnlockTokens,
+  getNextSkillUnlockLevel,
+} from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import { ElementalSkill, ElementalSkillId } from "@/types/game";
 import {
@@ -18,10 +24,11 @@ import {
   Info,
   ChevronRight,
   Lock,
+  Unlock,
 } from "lucide-react";
 
 export function ElementalSkillsView() {
-  const { state, changeActiveSkill, setActiveView } = useGame();
+  const { state, changeActiveSkill, unlockSkill, setActiveView } = useGame();
 
   // Gender toggle: default to user's registered gender, allow instant switching
   const initialGender = state.profile.gender === "female" ? "girls" : "boys";
@@ -40,6 +47,11 @@ export function ElementalSkillsView() {
 
   const isFemale = state.profile.gender === "female";
   const isOwnGender = (gender === "girls" && isFemale) || (gender === "boys" && !isFemale);
+
+  const unlockedList = state.unlockedSkills || DEFAULT_UNLOCKED_SKILLS;
+  const availableTokens = getAvailableSkillUnlockTokens(state.level, unlockedList.length);
+  const nextUnlockLevel = getNextSkillUnlockLevel(unlockedList.length);
+  const isSelectedUnlocked = unlockedList.includes(selectedSkill.id);
 
   const selectedProgress = (state.skillsProgress && state.skillsProgress[selectedSkill.id]) || {
     level: 1,
@@ -75,7 +87,7 @@ export function ElementalSkillsView() {
   const currentGifUrl = getSkillGifUrl(selectedSkill.name, gender);
 
   return (
-    <div className="space-y-5 select-none pb-8">
+    <div className="space-y-5 select-none pb-36 sm:pb-28 px-1 sm:px-0">
       {/* ── 1. TOP HEADER BANNER ── */}
       <div className="bg-[#fffbf0] border-4 border-game-border rounded-3xl p-4 sm:p-6 shadow-game-md relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -88,7 +100,7 @@ export function ElementalSkillsView() {
               <span>Elemental Disciplines & Battle GIFs</span>
             </h2>
             <p className="text-xs sm:text-sm font-medium text-stone-600 max-w-2xl">
-              Each discipline channels unique neuroscience willpower perks to shatter urges. Click any skill below to awaken and play its animated avatar GIF!
+              Start with Fire &amp; Water disciplines. Awaken 1 new discipline of your choice every 10 levels (Level 10, 20, 30...)!
             </p>
           </div>
 
@@ -119,6 +131,29 @@ export function ElementalSkillsView() {
           </div>
         </div>
       </div>
+
+      {/* ── 1.5 MILESTONE SKILL UNLOCK BANNER (When Tokens Available) ── */}
+      {availableTokens > 0 && isOwnGender && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3.5 sm:p-4 rounded-3xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border-3 border-amber-400 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-game-sm"
+        >
+          <div className="flex items-center gap-3 text-center sm:text-left">
+            <div className="w-10 h-10 rounded-2xl bg-amber-400 text-stone-900 flex items-center justify-center font-black text-lg shrink-0 shadow-sm animate-bounce">
+              ✨
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-amber-950 uppercase tracking-wide">
+                Level Milestone: {availableTokens} New Discipline Choice Available!
+              </div>
+              <p className="text-[11px] text-stone-600 font-medium">
+                You reached a 10-level milestone. Select any locked discipline below and click &quot;Unlock &amp; Awaken Discipline&quot;!
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── 2. FEATURED HERO SPOTLIGHT & LIVE GIF PLAYER ── */}
       <div
@@ -153,10 +188,12 @@ export function ElementalSkillsView() {
                 />
               </AnimatePresence>
 
-              {/* Top Corner Playing Pill */}
+              {/* Top Corner Status Pill */}
               <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/80 border border-white/20 text-[10px] font-black text-amber-300 flex items-center gap-1 backdrop-blur-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span className="uppercase">Animated GIF</span>
+                <span className="uppercase">
+                  {!isSelectedUnlocked ? "Locked Preview" : `${selectedSkill.badge} GIF`}
+                </span>
               </div>
 
               {/* Replay Button Overlay */}
@@ -178,7 +215,7 @@ export function ElementalSkillsView() {
           </div>
 
           {/* Right: Skill Lore, Combat Perk & Details */}
-          <div className="flex-1 min-w-0 space-y-3.5 text-center md:text-left">
+          <div className="flex-1 min-w-0 space-y-3 text-center md:text-left">
             {/* Header info */}
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-black uppercase tracking-wider mb-2">
@@ -192,7 +229,13 @@ export function ElementalSkillsView() {
                 <span>{selectedSkill.name}</span>
                 {isCurrentEquipped && (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black uppercase tracking-wide">
-                    ✓ Your Chosen Discipline
+                    ✓ Active Discipline
+                  </span>
+                )}
+                {!isSelectedUnlocked && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-stone-800 border border-stone-600 text-stone-300 font-bold uppercase tracking-wide flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-400" />
+                    Locked
                   </span>
                 )}
               </h3>
@@ -203,7 +246,7 @@ export function ElementalSkillsView() {
             </div>
 
             {/* Willpower Combat Perk Card */}
-            <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-2 border-amber-500/40 text-left">
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-2 border-amber-500/40 text-left">
               <div className="text-[11px] font-black uppercase tracking-widest text-amber-300 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 <span>Special Willpower Combat Perk</span>
@@ -250,7 +293,34 @@ export function ElementalSkillsView() {
 
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
-              {!isOwnGender ? (
+              {!isSelectedUnlocked ? (
+                !isOwnGender ? (
+                  <div
+                    title="Locked discipline and opposite gender preview only."
+                    className="px-4 py-2.5 rounded-xl bg-stone-900/90 border border-stone-700 text-stone-400 text-xs font-bold flex items-center gap-2 shadow-inner"
+                  >
+                    <Lock className="w-4 h-4 text-stone-500" />
+                    <span>Locked &amp; Opposite Gender (Preview Only)</span>
+                  </div>
+                ) : availableTokens > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => unlockSkill(selectedSkill.id)}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-stone-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_25px_rgba(245,158,11,0.7)] active:scale-95 transition-all cursor-pointer ring-2 ring-white animate-pulse"
+                  >
+                    <Sparkles className="w-4 h-4 text-stone-950 fill-stone-950" />
+                    <span>Unlock &amp; Awaken Discipline ({availableTokens} Choice Available)</span>
+                  </button>
+                ) : (
+                  <div
+                    title={`Reach Level ${nextUnlockLevel || 10} to awaken a new discipline.`}
+                    className="px-4 py-2.5 rounded-xl bg-stone-900/90 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-inner"
+                  >
+                    <Lock className="w-4 h-4 text-amber-400" />
+                    <span>Locked Discipline · Unlocks at Level {nextUnlockLevel || 10}</span>
+                  </div>
+                )
+              ) : !isOwnGender ? (
                 <div
                   title="Opposite gender preview only. You can only equip skills matching your registered gender."
                   className="px-4 py-2.5 rounded-xl bg-stone-900/90 border border-stone-700 text-stone-300 text-xs font-bold flex items-center gap-2 shadow-inner"
@@ -272,7 +342,7 @@ export function ElementalSkillsView() {
                   className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-game-orange to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-game-sm active:scale-95 transition-all cursor-pointer ring-1 ring-amber-300"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Equip & Activate Discipline</span>
+                  <span>Equip &amp; Activate Discipline</span>
                 </button>
               )}
 
@@ -294,17 +364,18 @@ export function ElementalSkillsView() {
         <div className="flex items-center justify-between px-1">
           <div className="text-xs font-black uppercase tracking-widest text-amber-950 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-game-orange" />
-            <span>Select Any Skill to Play Battle GIF (10 Total)</span>
+            <span>Select Any Skill to Play Animation (10 Total)</span>
           </div>
           <span className="text-[11px] font-bold text-stone-500 font-mono">
             Showing {gender === "boys" ? "Boys" : "Girls"}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3">
           {ELEMENTAL_SKILLS.map((skill) => {
             const isSelected = skill.id === selectedSkillId;
             const isEquipped = skill.id === state.profile.elementalSkill;
+            const isSkillUnlocked = unlockedList.includes(skill.id);
             const skillGif = getSkillGifUrl(skill.name, gender);
             const skillProg = (state.skillsProgress && state.skillsProgress[skill.id]) || {
               level: 1,
@@ -322,14 +393,24 @@ export function ElementalSkillsView() {
                 className={`p-3 rounded-2xl border-3 text-left transition-all relative flex flex-col justify-between overflow-hidden cursor-pointer shadow-game-sm ${
                   isSelected
                     ? "bg-[#25140b] text-white border-amber-400 ring-3 ring-amber-400/40 shadow-game-md"
+                    : !isSkillUnlocked
+                    ? "bg-[#f5eedc] hover:bg-[#ede3cc] text-stone-700 border-stone-300 opacity-90"
                     : "bg-[#fffbf0] hover:bg-amber-50/70 text-game-dark border-game-border"
                 }`}
               >
-                {/* Badges: Level & Equipped / Preview */}
+                {/* Badges: Level & Equipped / Locked / Preview */}
                 <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-stone-900 text-[9px] font-black uppercase tracking-wide shadow-sm">
-                    Lv.{skillProg.level}
-                  </span>
+                  {isSkillUnlocked ? (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500 text-stone-900 text-[9px] font-black uppercase tracking-wide shadow-sm">
+                      Lv.{skillProg.level}
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-stone-800/90 text-amber-300 text-[8px] font-bold uppercase tracking-wide shadow-sm flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" />
+                      Locked
+                    </span>
+                  )}
+
                   {isEquipped && isOwnGender && (
                     <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wide shadow-sm">
                       Active
@@ -350,10 +431,13 @@ export function ElementalSkillsView() {
                     className="w-full h-full object-contain"
                     loading="lazy"
                   />
-                  {/* Subtle Play Overlay */}
-                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <Play className="w-5 h-5 text-amber-300 fill-amber-300 drop-shadow" />
-                  </div>
+                  {!isSkillUnlocked && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-7 h-7 rounded-full bg-stone-900/90 border border-amber-400/50 flex items-center justify-center text-amber-300 shadow-md">
+                        <Lock className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Skill Title & Details */}
@@ -362,7 +446,11 @@ export function ElementalSkillsView() {
                     <span className="text-base">{skill.icon}</span>
                     <span
                       className={`font-black text-xs truncate ${
-                        isSelected ? "text-amber-200" : "text-game-dark"
+                        isSelected
+                          ? "text-amber-200"
+                          : !isSkillUnlocked
+                          ? "text-stone-700"
+                          : "text-game-dark"
                       }`}
                     >
                       {skill.name}
@@ -371,20 +459,14 @@ export function ElementalSkillsView() {
 
                   <div
                     className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 truncate ${
-                      isSelected ? "text-stone-300" : "text-stone-500"
+                      isSelected
+                        ? "text-stone-300"
+                        : !isSkillUnlocked
+                        ? "text-stone-500"
+                        : "text-stone-500"
                     }`}
                   >
                     {skill.tag}
-                  </div>
-
-                  {/* Play Action Prompt */}
-                  <div
-                    className={`mt-2 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
-                      isSelected ? "text-amber-300" : "text-game-orange"
-                    }`}
-                  >
-                    <Play className="w-2.5 h-2.5 fill-current" />
-                    <span>{isSelected ? "Now Playing" : "Play GIF"}</span>
                   </div>
                 </div>
               </motion.button>

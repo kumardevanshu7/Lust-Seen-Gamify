@@ -22,6 +22,9 @@ import {
   getMaxBucketQuestionsForLevel,
   DEFAULT_SKILLS_PROGRESS,
   getSkillXpRequired,
+  DEFAULT_UNLOCKED_SKILLS,
+  getAvailableSkillUnlockTokens,
+  getNextSkillUnlockLevel,
 } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import { STORE_ITEMS } from "@/lib/storeItems";
@@ -79,6 +82,7 @@ interface GameContextType {
   useSurpassLevelsItem: () => { success: boolean; message: string };
   useSkillChangeItem: (newSkillId: ElementalSkillId) => { success: boolean; message: string };
   changeActiveSkill: (newSkillId: ElementalSkillId) => { success: boolean; message: string };
+  unlockSkill: (skillId: ElementalSkillId) => { success: boolean; message: string };
   updateWarriorName: (newName: string) => { success: boolean; message: string };
   changeUsernameOnce: (newUsername: string) => Promise<{ success: boolean; message: string }>;
   useAttackGuildMateItem: (targetComradeName: string) => { success: boolean; message: string };
@@ -161,6 +165,7 @@ const initialDefaultState: GameState = {
   landingBackgroundVideo: "video-2",
   activeBgmSongId: "arena_japanese_girl_whisper",
   skillsProgress: DEFAULT_SKILLS_PROGRESS,
+  unlockedSkills: DEFAULT_UNLOCKED_SKILLS,
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -231,6 +236,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             ...DEFAULT_SKILLS_PROGRESS,
             ...(parsed.skillsProgress || {}),
           },
+          unlockedSkills: Array.from(
+            new Set([...DEFAULT_UNLOCKED_SKILLS, ...(parsed.unlockedSkills || [])])
+          ),
         });
       }
     } catch (e) {
@@ -265,6 +273,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
                 ...DEFAULT_SKILLS_PROGRESS,
                 ...(cloudState.skillsProgress || prev.skillsProgress || {}),
               },
+              unlockedSkills: Array.from(
+                new Set([
+                  ...DEFAULT_UNLOCKED_SKILLS,
+                  ...(cloudState.unlockedSkills || prev.unlockedSkills || []),
+                ])
+              ),
               profile: {
                 ...prev.profile,
                 ...cloudState.profile,
@@ -542,6 +556,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           isOnboarded: true,
           hasCompletedIntro: true,
+          unlockedSkills: Array.from(
+            new Set([...(prev.unlockedSkills || DEFAULT_UNLOCKED_SKILLS), elementalSkill])
+          ),
           profile: {
             ...prev.profile,
             name: name.trim(),
@@ -934,6 +951,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             nextUnlockedSongs.push(songId);
           }
         }
+        if (item.effectType === "unlock_username_change") {
+          nextProfile.hasChangedUsernameOnce = false;
+        }
 
         return {
           ...prev,
@@ -1089,6 +1109,56 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       return { success: true, message: `Equipped ${newSkillId.toUpperCase()} discipline!` };
     },
     [currentUser, triggerConfetti]
+  );
+
+  // Unlock & Awaken a New Elemental Skill using earned unlock tokens (earned every 10 levels)
+  const unlockSkill = useCallback(
+    (skillId: ElementalSkillId): { success: boolean; message: string } => {
+      const currentUnlocked = state.unlockedSkills || DEFAULT_UNLOCKED_SKILLS;
+      if (currentUnlocked.includes(skillId)) {
+        return { success: true, message: "Discipline is already unlocked!" };
+      }
+
+      const availableTokens = getAvailableSkillUnlockTokens(state.level, currentUnlocked.length);
+      if (availableTokens <= 0) {
+        const nextReqLevel = getNextSkillUnlockLevel(currentUnlocked.length);
+        soundEngine.playDamage();
+        return {
+          success: false,
+          message: `Requires Level ${nextReqLevel} to awaken an additional discipline! Current level: ${state.level}.`,
+        };
+      }
+
+      soundEngine.playLevelUp();
+      triggerConfetti();
+
+      setState((prev) => {
+        const nextUnlocked = Array.from(
+          new Set([...(prev.unlockedSkills || DEFAULT_UNLOCKED_SKILLS), skillId])
+        );
+        const nextState: GameState = {
+          ...prev,
+          unlockedSkills: nextUnlocked,
+          profile: {
+            ...prev.profile,
+            elementalSkill: skillId, // Auto-equip newly awakened discipline
+          },
+        };
+
+        if (currentUser?.uid) {
+          saveGameStateToCloud(currentUser.uid, nextState);
+          updateWarriorProfilePublicly(currentUser.uid, { elementalSkill: skillId });
+        }
+
+        return nextState;
+      });
+
+      return {
+        success: true,
+        message: `Awakened ${skillId.toUpperCase()} discipline! You can now equip and level it up.`,
+      };
+    },
+    [state.unlockedSkills, state.level, currentUser, triggerConfetti]
   );
 
   // Update Warrior Name
@@ -1297,6 +1367,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           nextProfile.title = String(item.effectValue);
         } else if (item.effectType === "equip_aura") {
           nextProfile.equippedAura = String(item.effectValue);
+        } else if (item.effectType === "unlock_username_change") {
+          nextProfile.hasChangedUsernameOnce = false;
         }
 
         return {
@@ -1670,6 +1742,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         useSurpassLevelsItem,
         useSkillChangeItem,
         changeActiveSkill,
+        unlockSkill,
         updateWarriorName,
         changeUsernameOnce,
         useAttackGuildMateItem,

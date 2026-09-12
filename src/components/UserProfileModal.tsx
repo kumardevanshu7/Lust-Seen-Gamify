@@ -248,21 +248,21 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
           </div>
 
           {/* Sub-Tab Navigation */}
-          <div className="flex bg-stone-200/80 p-1 rounded-2xl mb-4 border border-stone-300">
+          <div className="grid grid-cols-2 gap-2 bg-stone-200/80 p-1.5 rounded-2xl mb-4 border border-stone-300">
             <button
               type="button"
               onClick={() => {
                 soundEngine.playClick();
                 setActiveTab("profile");
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === "profile"
-                  ? "bg-game-orange text-white shadow-game-sm"
-                  : "text-stone-700 hover:text-stone-900 cursor-pointer"
+                  ? "bg-game-orange text-white shadow-game-sm ring-1 ring-amber-300"
+                  : "bg-white/70 hover:bg-white text-stone-700 hover:text-stone-900 shadow-xs"
               }`}
             >
-              <Award className="w-3.5 h-3.5" />
-              <span>Warrior Card</span>
+              <Award className="w-4 h-4 shrink-0" />
+              <span className="truncate">Warrior Card</span>
             </button>
             <button
               type="button"
@@ -270,14 +270,14 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                 soundEngine.playClick();
                 setActiveTab("skills");
               }}
-              className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === "skills"
-                  ? "bg-game-orange text-white shadow-game-sm"
-                  : "text-stone-700 hover:text-stone-900 cursor-pointer"
+                  ? "bg-game-orange text-white shadow-game-sm ring-1 ring-amber-300"
+                  : "bg-white/70 hover:bg-white text-stone-700 hover:text-stone-900 shadow-xs"
               }`}
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Skill Ranges & Codex</span>
+              <Zap className="w-4 h-4 shrink-0" />
+              <span className="truncate">Skill Ranges & Codex</span>
             </button>
           </div>
 

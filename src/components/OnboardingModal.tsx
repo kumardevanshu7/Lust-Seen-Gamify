@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ElementalSkillId, Gender, RelationshipStatus } from "@/types/game";
-import { ELEMENTAL_SKILLS, getSkillGifUrl } from "@/lib/gameLogic";
+import { ELEMENTAL_SKILLS, getSkillGifUrl, DEFAULT_UNLOCKED_SKILLS } from "@/lib/gameLogic";
 import { soundEngine } from "@/lib/soundEngine";
 import { User, Heart, ArrowRight, Check, Shield, Sparkles, AtSign, Zap, X, Lock, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useGame } from "@/context/GameContext";
@@ -33,6 +33,7 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
   const [relationship, setRelationship] = useState<RelationshipStatus>("single");
   const [elementalSkill, setElementalSkill] = useState<ElementalSkillId>("fire");
   const [animatingSkillId, setAnimatingSkillId] = useState<ElementalSkillId | null>(null);
+  const [lockedNotice, setLockedNotice] = useState<string>("");
   const [formError, setFormError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [usernameStatusMsg, setUsernameStatusMsg] = useState("");
@@ -128,6 +129,15 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
   };
 
   const handleSkillSelect = (skillId: ElementalSkillId) => {
+    if (!DEFAULT_UNLOCKED_SKILLS.includes(skillId)) {
+      soundEngine.playDamage();
+      setLockedNotice("Discipline Locked! Only Fire & Water are starter classes. Unlock more at Level 10, 20, 30+!");
+      setTimeout(() => {
+        setLockedNotice("");
+      }, 3500);
+      return;
+    }
+    setLockedNotice("");
     setElementalSkill(skillId);
     setAnimatingSkillId(skillId);
     soundEngine.playSkillActivate(skillId);
@@ -440,12 +450,23 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
             >
               <div className="text-center">
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-game-dark">
-                  Select Your Elemental Skill
+                  Select Your Starter Skill
                 </h2>
                 <p className="text-xs text-stone-600 font-medium">
-                  Choose your willpower discipline from 10 elemental starter classes.
+                  Choose your Level 1 starter class (Fire or Water). Unlock 8 more disciplines every 10 levels!
                 </p>
               </div>
+
+              {lockedNotice && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-2.5 rounded-xl bg-amber-50 border-2 border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2 shadow-xs"
+                >
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>{lockedNotice}</span>
+                </motion.div>
+              )}
 
               {/* Active Selected Skill Animation Banner */}
               {(() => {
@@ -470,7 +491,7 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                         <div className="text-xs font-black text-game-dark flex items-center gap-1.5">
                           <span>{activeSkill.icon} {activeSkill.name}</span>
                           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-200/80 text-orange-950">
-                            Awakened
+                            Starter Class
                           </span>
                         </div>
                         <div className="text-[11px] font-bold text-amber-900 flex items-center gap-1">
@@ -502,9 +523,10 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                 );
               })()}
 
-              {/* Compact 10-Skills Grid (Simple, Fast, No Walls of Text) */}
+              {/* Compact 10-Skills Grid (Simple, Fast, Level-Gated) */}
               <div className="grid grid-cols-2 gap-2 max-h-[42vh] overflow-y-auto pr-1">
                 {ELEMENTAL_SKILLS.map((skill) => {
+                  const isUnlocked = DEFAULT_UNLOCKED_SKILLS.includes(skill.id);
                   const isSelected = elementalSkill === skill.id;
                   const isAnimating = animatingSkillId === skill.id;
 
@@ -530,7 +552,9 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                       className={`p-2.5 rounded-2xl border-2 text-left transition-all relative flex items-center gap-2.5 cursor-pointer select-none ${
                         isSelected
                           ? "bg-amber-50 border-game-orange ring-2 ring-orange-300/80 shadow-game-sm"
-                          : "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                          : isUnlocked
+                          ? "bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50"
+                          : "bg-stone-100/80 border-dashed border-stone-300 opacity-65 hover:opacity-85"
                       }`}
                     >
                       {/* Skill Icon */}
@@ -539,7 +563,9 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                           className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-xs border ${
                             isSelected
                               ? "bg-gradient-to-tr from-amber-200 to-amber-100 border-amber-300"
-                              : "bg-stone-100 border-stone-200"
+                              : isUnlocked
+                              ? "bg-stone-100 border-stone-200"
+                              : "bg-stone-200/70 border-stone-300 grayscale"
                           }`}
                         >
                           <motion.span
@@ -554,15 +580,24 @@ export function OnboardingModal({ onComplete, onClose }: OnboardingModalProps) {
                             ✓
                           </span>
                         )}
+                        {!isUnlocked && (
+                          <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-600 text-white flex items-center justify-center text-[8px] font-bold shadow-xs">
+                            🔒
+                          </span>
+                        )}
                       </div>
 
-                      {/* Name & 1-Line Tag (Clean & Simple) */}
+                      {/* Name & 1-Line Tag */}
                       <div className="min-w-0 flex-1">
                         <div className="font-black text-xs text-game-dark truncate">
                           {skill.name}
                         </div>
-                        <div className="text-[10px] font-bold text-stone-500 truncate mt-0.5">
-                          {skill.tag}
+                        <div className="text-[10px] font-bold truncate mt-0.5">
+                          {isUnlocked ? (
+                            <span className="text-emerald-700 font-extrabold">Starter Class</span>
+                          ) : (
+                            <span className="text-stone-500 font-semibold">🔒 Lv. 10+ Locked</span>
+                          )}
                         </div>
                       </div>
                     </motion.button>

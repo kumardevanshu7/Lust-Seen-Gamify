@@ -188,6 +188,7 @@ export interface StoreItem {
     | "triple_xp"
     | "smoke_bomb"
     | "unlock_premium_song"  // Buy premium BGM track
+    | "unlock_username_change" // Level 30+ item: +1 chance to change username!
     | "equip_title"
     | "equip_aura";
   effectValue?: number | string;
@@ -221,4 +222,5 @@ export interface GameState {
   doubleXpDaysRemaining: number; // Active days of 2x XP
   activeView: "daily" | "achievers" | "clans" | "stats" | "store" | "skills";
   skillsProgress: Record<ElementalSkillId, SkillProgress>;
+  unlockedSkills: ElementalSkillId[];
 }
